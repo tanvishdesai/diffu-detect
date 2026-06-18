@@ -91,6 +91,11 @@ def run_scoring_pipeline(
             device=device,
             cache_dir=cache_dir,
             trust_remote_code=True,
+            loader=model_spec.loader,
+            hf_checkpoint=model_spec.hf_checkpoint,
+            tokenizer_repo=model_spec.tokenizer_repo,
+            smdm_config_name=model_spec.smdm_config_name,
+            mask_token_id=model_spec.mask_token_id,
         )
 
     # Determine mask token ID

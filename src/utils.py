@@ -91,13 +91,33 @@ def load_masked_diffusion_model(
     device: str = "cuda",
     cache_dir: Optional[str] = None,
     trust_remote_code: bool = True,
+    loader: str = "transformers",
+    hf_checkpoint: Optional[str] = None,
+    tokenizer_repo: Optional[str] = None,
+    smdm_config_name: Optional[str] = None,
+    mask_token_id: Optional[int] = None,
+    smdm_root: Optional[str] = None,
 ) -> Tuple[Any, Any]:
     """
     Load a masked diffusion language model.
 
-    Handles SMDM, MDLM, LLaDA, Dream architectures with trust_remote_code.
-    These models typically use AutoModelForMaskedLM or custom architectures.
+    Handles SMDM (raw safetensors), MDLM, LLaDA, Dream via transformers.
     """
+    if loader == "smdm":
+        from .models.smdm_loader import load_smdm_model
+
+        model, tokenizer, _ = load_smdm_model(
+            hf_repo=hf_repo,
+            hf_checkpoint=hf_checkpoint or "mdm_safetensors/mdm-1028M-1600e18.safetensors",
+            config_name=smdm_config_name or "Diff_LLaMA_1028M",
+            tokenizer_repo=tokenizer_repo or "TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T",
+            mask_token_id=mask_token_id or 32000,
+            device=device,
+            cache_dir=cache_dir,
+            smdm_root=smdm_root,
+        )
+        return model, tokenizer
+
     from transformers import AutoTokenizer, AutoModel, BitsAndBytesConfig
 
     print(f"[utils] Loading diffusion model: {hf_repo} (bits={quantize_bits})")

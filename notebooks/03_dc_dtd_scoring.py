@@ -40,8 +40,16 @@ np.random.seed(SEED); torch.manual_seed(SEED)
 RUN_DC = True
 RUN_DTD = True
 
-# DC config
-DC_MODEL_REPO = "nieshen/SMDM-1.1b"
+# DC config — SMDM weights are at nieshen/SMDM (not nieshen/SMDM-1.1b)
+DC_MODEL_CFG = {
+    "loader": "smdm",
+    "hf_repo": "nieshen/SMDM",
+    "hf_checkpoint": "mdm_safetensors/mdm-1028M-1600e18.safetensors",
+    "smdm_config_name": "Diff_LLaMA_1028M",
+    "tokenizer_repo": "TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T",
+    "mask_token_id": 32000,
+    "smdm_root": "/tmp/SMDM",
+}
 DC_MODEL_NAME = "smdm-1.1b"
 DC_MASK_RATIO = 0.30
 DC_NUM_PERTURBATIONS = 30       # Reduced from 50 for speed
@@ -89,8 +97,255 @@ print(f"Data: {len(df)} passages, labels={df['label'].value_counts().to_dict()}"
 
 # ─── Helper functions ────────────────────────────────────────────────────────
 
-def load_diffusion_model(repo, quantize_bits=None):
+def _patch_smdm_source(smdm_root):
+    """Patch SMDM source to remove hard dependencies on flash_attn, xformers, etc."""
+    import re
+
+    # --- Patch lit_gpt/model.py: replace flash_attn import + usage ---
+    model_py = os.path.join(smdm_root, "lit_gpt", "model.py")
+    if os.path.exists(model_py):
+        with open(model_py, "r") as f:
+            src = f.read()
+        if "flash_attn" in src:
+            src = src.replace(
+                "from flash_attn import flash_attn_func",
+                "# flash_attn patched out — using PyTorch SDPA fallback",
+            )
+            src = re.sub(
+                r'flash_attn_func\s*\(([^)]*)\)',
+                r'F.scaled_dot_product_attention(\1)',
+                src,
+            )
+            if "import torch.nn.functional as F" not in src:
+                src = "import torch.nn.functional as F\n" + src
+            src = src.replace(
+                "from xformers.ops import SwiGLU",
+                "# xformers patched out\n"
+                "class SwiGLU(torch.nn.Module):\n"
+                "    def __init__(self, in_features, hidden_features, out_features, bias=True):\n"
+                "        super().__init__()\n"
+                "        self.w1 = torch.nn.Linear(in_features, hidden_features, bias=bias)\n"
+                "        self.w2 = torch.nn.Linear(in_features, hidden_features, bias=bias)\n"
+                "        self.w3 = torch.nn.Linear(hidden_features, out_features, bias=bias)\n"
+                "        self.act = torch.nn.SiLU()\n"
+                "    def forward(self, x):\n"
+                "        return self.w3(self.act(self.w1(x)) * self.w2(x))\n",
+            )
+            with open(model_py, "w") as f:
+                f.write(src)
+            print("  Patched model.py (flash_attn + xformers → PyTorch native)")
+
+    # --- Patch lit_gpt/diffmodel.py: remove ALL non-standard deps ---
+    diff_py = os.path.join(smdm_root, "lit_gpt", "diffmodel.py")
+    if os.path.exists(diff_py):
+        with open(diff_py, "r") as f:
+            src = f.read()
+        changed = False
+
+        if "from flash_attn import flash_attn_func" in src:
+            src = src.replace(
+                "from flash_attn import flash_attn_func",
+                "# flash_attn patched out — using PyTorch SDPA fallback",
+            )
+            changed = True
+
+        if "from xformers.ops import SwiGLU" in src:
+            src = src.replace(
+                "from xformers.ops import SwiGLU",
+                "# xformers patched out\n"
+                "class SwiGLU(torch.nn.Module):\n"
+                "    def __init__(self, in_features, hidden_features, out_features=None, bias=True, _pack_weights=False):\n"
+                "        super().__init__()\n"
+                "        out_features = out_features or in_features\n"
+                "        self.w1 = torch.nn.Linear(in_features, hidden_features, bias=bias)\n"
+                "        self.w2 = torch.nn.Linear(in_features, hidden_features, bias=bias)\n"
+                "        self.w3 = torch.nn.Linear(hidden_features, out_features, bias=bias)\n"
+                "        self.act = torch.nn.SiLU()\n"
+                "    def forward(self, x):\n"
+                "        return self.w3(self.act(self.w1(x)) * self.w2(x))\n",
+            )
+            changed = True
+
+        if "from .fused_rotary_embedding import apply_rotary_emb_func" in src:
+            rotary_impl = (
+                "# fused_rotary_embedding patched out — pure PyTorch fallback\n"
+                "def apply_rotary_emb_func(x, cos, sin, interleaved=False, inplace=False):\n"
+                "    '''Pure PyTorch rotary embedding. x: (B, T, nh, hs), cos/sin: (T, rotary_dim//2)'''\n"
+                "    rot_dim = cos.shape[-1] * 2\n"
+                "    x_rot = x[..., :rot_dim]\n"
+                "    x_pass = x[..., rot_dim:]\n"
+                "    x1 = x_rot[..., : rot_dim // 2]\n"
+                "    x2 = x_rot[..., rot_dim // 2 :]\n"
+                "    cos = cos[:x.shape[1]].unsqueeze(0).unsqueeze(2)  # (1, T, 1, rot_dim//2)\n"
+                "    sin = sin[:x.shape[1]].unsqueeze(0).unsqueeze(2)\n"
+                "    o1 = x1 * cos - x2 * sin\n"
+                "    o2 = x2 * cos + x1 * sin\n"
+                "    out_rot = torch.cat([o1, o2], dim=-1)\n"
+                "    return torch.cat([out_rot, x_pass], dim=-1).to(x.dtype)\n"
+            )
+            src = src.replace(
+                "from .fused_rotary_embedding import apply_rotary_emb_func",
+                rotary_impl,
+            )
+            changed = True
+
+        if "from lightning_utilities.core.imports import RequirementCache" in src:
+            src = src.replace(
+                "from lightning_utilities.core.imports import RequirementCache",
+                "# lightning_utilities patched out\n"
+                "class RequirementCache:\n"
+                "    def __init__(self, *a, **kw): pass\n"
+                "    def __bool__(self): return False\n",
+            )
+            changed = True
+
+        if changed and "import torch.nn.functional as F" not in src:
+            src = "import torch.nn.functional as F\n" + src
+
+        if changed:
+            with open(diff_py, "w") as f:
+                f.write(src)
+            print("  Patched diffmodel.py (flash_attn/xformers/rotary/lightning → PyTorch native)")
+
+    # --- Patch lit_gpt/config.py: rewrite to be fully self-contained ---
+    config_py = os.path.join(smdm_root, "lit_gpt", "config.py")
+    if os.path.exists(config_py):
+        with open(config_py, "r") as f:
+            src = f.read()
+        if "# config-fully-patched" not in src:
+            new_src = (
+                "# config-fully-patched: self-contained, no lit_gpt.model or lit_gpt.utils\n"
+                "from dataclasses import dataclass\n"
+                "from typing import Any, Literal, Optional, Type\n"
+                "\n"
+                "import torch\n"
+                "from typing_extensions import Self\n"
+                "\n"
+                "\n"
+                "def find_multiple(n: int, k: int) -> int:\n"
+                "    if n % k == 0:\n"
+                "        return n\n"
+                "    return n + k - (n % k)\n"
+                "\n"
+            )
+            marker = "@dataclass"
+            idx = src.find(marker)
+            if idx != -1:
+                body = src[idx:]
+                body = re.sub(
+                    r'@property\s+def norm_class\(self\).*?(?=\n    @|\nconfigs)',
+                    '@property\n'
+                    '    def norm_class(self) -> Type:\n'
+                    '        if "RMSNorm" in self._norm_class:\n'
+                    '            if hasattr(torch.nn, "RMSNorm"):\n'
+                    '                return torch.nn.RMSNorm\n'
+                    '            class _RMSNorm(torch.nn.Module):\n'
+                    '                def __init__(self, d, eps=1e-5):\n'
+                    '                    super().__init__()\n'
+                    '                    self.eps = eps\n'
+                    '                    self.weight = torch.nn.Parameter(torch.ones(d))\n'
+                    '                def forward(self, x):\n'
+                    '                    norm = torch.rsqrt(x.pow(2).mean(-1, keepdim=True) + self.eps)\n'
+                    '                    return x * norm * self.weight\n'
+                    '            return _RMSNorm\n'
+                    '        return getattr(torch.nn, self._norm_class)\n\n',
+                    body,
+                    flags=re.DOTALL,
+                )
+                body = re.sub(
+                    r'@property\s+def mlp_class\(self\).*?(?=\n    @|\nconfigs)',
+                    '@property\n'
+                    '    def mlp_class(self) -> Type:\n'
+                    '        import lit_gpt.diffmodel as _dm\n'
+                    '        return getattr(_dm, self._mlp_class)\n\n',
+                    body,
+                    flags=re.DOTALL,
+                )
+                body = body.replace(
+                    "lit_gpt.model.",
+                    "__import__('lit_gpt.model', fromlist=['model']).model.",
+                )
+                new_src += body
+            else:
+                new_src += src.replace("import lit_gpt.model\n", "")
+                new_src = new_src.replace("from lit_gpt.utils import find_multiple\n", "")
+
+            with open(config_py, "w") as f:
+                f.write(new_src)
+            print("  Patched config.py (self-contained, no lightning/torchvision deps)")
+
+    # --- Rewrite lit_gpt/__init__.py ---
+    init_py = os.path.join(smdm_root, "lit_gpt", "__init__.py")
+    if os.path.exists(init_py):
+        with open(init_py, "r") as f:
+            src = f.read()
+        if "# patched-init" not in src:
+            with open(init_py, "w") as f:
+                f.write(
+                    "# patched-init: minimal stub to avoid circular imports\n"
+                    "# Only diffmodel.Config and diffmodel.TransEncoder are needed.\n"
+                )
+            print("  Patched __init__.py (replaced with minimal stub)")
+
+
+def _load_smdm_model(cfg):
+    """Load SMDM-1.1B from nieshen/SMDM safetensors."""
+    import subprocess
+    from types import SimpleNamespace
+    from huggingface_hub import hf_hub_download
+    from safetensors.torch import load_file
+    from transformers import AutoTokenizer
+
+    class _Wrap:
+        def __init__(self, model, mask_token_id):
+            self.model = model
+            self.lm_head = model.lm_head
+            self.config = SimpleNamespace(mask_token_id=mask_token_id)
+        def eval(self):
+            self.model.eval()
+            return self
+        def __call__(self, input_ids=None, attention_mask=None, **kwargs):
+            return SimpleNamespace(logits=self.model(input_ids))
+
+    smdm_root = cfg["smdm_root"]
+    if not os.path.isdir(os.path.join(smdm_root, "lit_gpt")):
+        subprocess.run(
+            ["git", "clone", "--depth", "1", "https://github.com/ML-GSAI/SMDM.git", smdm_root],
+            check=True,
+        )
+
+    # Patch source to remove flash_attn / xformers / rotary hard dependencies
+    _patch_smdm_source(smdm_root)
+
+    if smdm_root not in sys.path:
+        sys.path.insert(0, smdm_root)
+
+    # Clear any stale/partially-initialized lit_gpt modules from prior attempts
+    stale = [k for k in sys.modules if k == "lit_gpt" or k.startswith("lit_gpt.")]
+    for k in stale:
+        del sys.modules[k]
+
+    from lit_gpt.diffmodel import Config, TransEncoder
+
+    ckpt_path = hf_hub_download(repo_id=cfg["hf_repo"], filename=cfg["hf_checkpoint"])
+    config = Config.from_name(cfg["smdm_config_name"])
+    model = TransEncoder(config).to(DEVICE)
+    model.load_state_dict(load_file(ckpt_path, device=DEVICE))
+    model.half()
+    model.eval()
+
+    tok = AutoTokenizer.from_pretrained(cfg["tokenizer_repo"], padding_side="right", use_fast=True)
+    tok.add_special_tokens({"pad_token": "<|pad|>"})
+    tok.pad_token_id = cfg["mask_token_id"]
+    return _Wrap(model, cfg["mask_token_id"]), tok
+
+
+def load_diffusion_model(repo_or_cfg, quantize_bits=None):
     """Load a diffusion model with optional quantization."""
+    if isinstance(repo_or_cfg, dict) and repo_or_cfg.get("loader") == "smdm":
+        return _load_smdm_model(repo_or_cfg)
+
+    repo = repo_or_cfg
     from transformers import AutoTokenizer, AutoModel, AutoModelForMaskedLM, BitsAndBytesConfig
 
     tok = AutoTokenizer.from_pretrained(repo, trust_remote_code=True)
@@ -163,7 +418,7 @@ if RUN_DC:
     print("DIFFUSION CURVATURE (DC) SCORING")
     print("=" * 60)
 
-    model, tokenizer = load_diffusion_model(DC_MODEL_REPO)
+    model, tokenizer = load_diffusion_model(DC_MODEL_CFG)
     mask_id = get_mask_token_id(model, tokenizer)
     special_ids = get_special_ids(tokenizer)
     print(f"Mask token: {mask_id}, special: {special_ids}")

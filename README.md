@@ -107,7 +107,8 @@ Kaggle Settings:
 2. Copy `notebooks/02_mre_scoring.py`
 3. **Important configs to set:**
    - `MAX_SAMPLES = 2000` (start here; scale to 5000+ later)
-   - `MODEL_HF_REPO = "nieshen/SMDM-1.1b"`
+   - `MODEL_NAME = "smdm-1.1b"` (requires SMDM install — see notebook Cell 1)
+   - Or `MODEL_NAME = "mdlm-110m"` for a quick transformers-native test
    - `NUM_MASK_DRAWS = 16`
 4. Run all cells
 5. **Check GO/NO-GO #1**: If best AUROC ≥ 0.85, proceed. If < 0.70, the premise is weak.

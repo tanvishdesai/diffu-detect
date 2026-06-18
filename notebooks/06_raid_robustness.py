@@ -44,7 +44,10 @@ RUN_METHOD = "mre"
 # Model config (matches RUN_METHOD)
 MODEL_CONFIGS = {
     "mre": {
-        "repo": "nieshen/SMDM-1.1b",
+        "loader": "smdm",
+        "hf_repo": "nieshen/SMDM",
+        "hf_checkpoint": "mdm_safetensors/mdm-1028M-1600e18.safetensors",
+        "mask_token_id": 32000,
         "name": "smdm-1.1b",
         "type": "diffusion",
         "quantize": None,
@@ -74,8 +77,9 @@ RESULTS_DIR = "/kaggle/working/results"
 os.makedirs(RESULTS_DIR, exist_ok=True)
 
 config = MODEL_CONFIGS[RUN_METHOD]
+model_label = config.get("hf_repo") or config.get("repo")
 print(f"Method: {RUN_METHOD}")
-print(f"Model: {config['name']} ({config['repo']})")
+print(f"Model: {config['name']} ({model_label})")
 
 # ─── Load RAID data ──────────────────────────────────────────────────────────
 
@@ -123,18 +127,65 @@ print(f"\n  Clean: {len(clean_df)}, Attacked: {len(attacked_df)}")
 # ─── Load model ──────────────────────────────────────────────────────────────
 
 from transformers import AutoTokenizer, AutoModelForCausalLM, AutoModelForMaskedLM, AutoModel
+from types import SimpleNamespace
 
-print(f"\nLoading model: {config['repo']}...")
+print(f"\nLoading model: {model_label}...")
 
-tokenizer = AutoTokenizer.from_pretrained(config["repo"], trust_remote_code=True)
-if tokenizer.pad_token is None:
-    tokenizer.pad_token = tokenizer.eos_token
+if config.get("loader") == "smdm":
+    import subprocess
+    from huggingface_hub import hf_hub_download
+    from safetensors.torch import load_file
 
-if config["type"] == "ar":
+    smdm_root = "/tmp/SMDM"
+    if not os.path.isdir(os.path.join(smdm_root, "lit_gpt")):
+        subprocess.run(
+            ["git", "clone", "--depth", "1", "https://github.com/ML-GSAI/SMDM.git", smdm_root],
+            check=True,
+        )
+    if smdm_root not in sys.path:
+        sys.path.insert(0, smdm_root)
+
+    from lit_gpt.diffmodel import Config, TransEncoder
+
+    ckpt_path = hf_hub_download(
+        repo_id=config["hf_repo"],
+        filename=config["hf_checkpoint"],
+    )
+    smdm_config = Config.from_name("Diff_LLaMA_1028M")
+    core = TransEncoder(smdm_config).to(DEVICE)
+    core.load_state_dict(load_file(ckpt_path, device=DEVICE))
+    core.half()
+    core.eval()
+
+    class SMDMWrap:
+        def __init__(self, m):
+            self.model = m
+            self.lm_head = m.lm_head
+            self.config = SimpleNamespace(mask_token_id=32000)
+        def eval(self):
+            self.model.eval()
+            return self
+        def __call__(self, input_ids=None, attention_mask=None, **kwargs):
+            return SimpleNamespace(logits=self.model(input_ids))
+
+    model = SMDMWrap(core)
+    tokenizer = AutoTokenizer.from_pretrained(
+        "TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T",
+        padding_side="right", use_fast=True,
+    )
+    tokenizer.add_special_tokens({"pad_token": "<|pad|>"})
+    tokenizer.pad_token_id = 32000
+elif config["type"] == "ar":
+    tokenizer = AutoTokenizer.from_pretrained(config["repo"], trust_remote_code=True)
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
     model = AutoModelForCausalLM.from_pretrained(
         config["repo"], torch_dtype=torch.float16, device_map={"": DEVICE}
     )
 else:
+    tokenizer = AutoTokenizer.from_pretrained(config["repo"], trust_remote_code=True)
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
     model = None
     for Cls in [AutoModelForMaskedLM, AutoModel]:
         try:
@@ -152,7 +203,9 @@ print(f"Model loaded. GPU: {torch.cuda.memory_allocated()/1024**3:.2f} GB")
 # Get mask token (for diffusion models)
 MASK_TOKEN_ID = None
 if config["type"] == "diffusion":
-    for check in [
+    MASK_TOKEN_ID = config.get("mask_token_id")
+    if MASK_TOKEN_ID is None:
+        for check in [
         lambda: tokenizer.mask_token_id if hasattr(tokenizer, 'mask_token_id') and tokenizer.mask_token_id else None,
         lambda: model.config.mask_token_id if hasattr(model.config, 'mask_token_id') else None,
         lambda: tokenizer.convert_tokens_to_ids("[MASK]") if "[MASK]" in tokenizer.get_vocab() else None,

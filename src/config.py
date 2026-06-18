@@ -29,17 +29,27 @@ class ModelSpec:
     quantize_bits: Optional[int] = None   # None = full precision, 4 = 4-bit, 8 = 8-bit
     max_length: int = 512
     supports_iterative: bool = False      # True for LLaDA, Dream (DTD features)
+    loader: str = "transformers"          # "transformers" | "smdm"
+    hf_checkpoint: Optional[str] = None   # safetensors path inside hf_repo (SMDM)
+    tokenizer_repo: Optional[str] = None
+    smdm_config_name: Optional[str] = None
+    mask_token_id: Optional[int] = None
 
 
 MODELS: Dict[str, ModelSpec] = {
     # ── Diffusion scorers ──
     "smdm-1.1b": ModelSpec(
         name="smdm-1.1b",
-        hf_repo="nieshen/SMDM-1.1b",
+        hf_repo="nieshen/SMDM",
         model_type="diffusion",
         quantize_bits=None,
         max_length=512,
         supports_iterative=False,
+        loader="smdm",
+        hf_checkpoint="mdm_safetensors/mdm-1028M-1600e18.safetensors",
+        tokenizer_repo="TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T",
+        smdm_config_name="Diff_LLaMA_1028M",
+        mask_token_id=32000,
     ),
     "mdlm-110m": ModelSpec(
         name="mdlm-110m",
