@@ -97,11 +97,14 @@ def load_masked_diffusion_model(
     smdm_config_name: Optional[str] = None,
     mask_token_id: Optional[int] = None,
     smdm_root: Optional[str] = None,
+    model_class: Optional[str] = None,
 ) -> Tuple[Any, Any]:
     """
     Load a masked diffusion language model.
 
     Handles SMDM (raw safetensors), MDLM, LLaDA, Dream via transformers.
+    model_class selects the HF auto-class: "causal_lm" (LLaDA), "automodel"
+    (Dream), "masked_lm" (MDLM); default tries masked_lm → causal_lm → automodel.
     """
     if loader == "smdm":
         from .models.smdm_loader import load_smdm_model
@@ -118,13 +121,16 @@ def load_masked_diffusion_model(
         )
         return model, tokenizer
 
-    from transformers import AutoTokenizer, AutoModel, BitsAndBytesConfig
+    from transformers import (
+        AutoTokenizer, AutoModel, AutoModelForCausalLM,
+        AutoModelForMaskedLM, BitsAndBytesConfig,
+    )
 
-    print(f"[utils] Loading diffusion model: {hf_repo} (bits={quantize_bits})")
+    print(f"[utils] Loading diffusion model: {hf_repo} (bits={quantize_bits}, class={model_class})")
     start = time.time()
 
     tokenizer = AutoTokenizer.from_pretrained(
-        hf_repo,
+        tokenizer_repo or hf_repo,
         cache_dir=cache_dir,
         trust_remote_code=trust_remote_code,
     )
@@ -136,6 +142,7 @@ def load_masked_diffusion_model(
         "cache_dir": cache_dir,
         "trust_remote_code": trust_remote_code,
         "torch_dtype": torch.float16,
+        "low_cpu_mem_usage": True,
     }
 
     if quantize_bits in (4, 8):
@@ -149,14 +156,24 @@ def load_masked_diffusion_model(
         load_kwargs["quantization_config"] = bnb_config
         load_kwargs["device_map"] = "auto"
     else:
-        load_kwargs["device_map"] = {"": device}
+        load_kwargs["device_map"] = {"": device} if torch.cuda.device_count() <= 1 else "auto"
 
-    # Try AutoModelForMaskedLM first, fall back to AutoModel
-    try:
-        from transformers import AutoModelForMaskedLM
-        model = AutoModelForMaskedLM.from_pretrained(**load_kwargs)
-    except Exception:
-        model = AutoModel.from_pretrained(**load_kwargs)
+    class_order = {
+        "causal_lm": [AutoModelForCausalLM, AutoModelForMaskedLM, AutoModel],
+        "automodel": [AutoModel, AutoModelForCausalLM, AutoModelForMaskedLM],
+        "masked_lm": [AutoModelForMaskedLM, AutoModel, AutoModelForCausalLM],
+    }.get(model_class, [AutoModelForMaskedLM, AutoModelForCausalLM, AutoModel])
+
+    model = None
+    for ModelClass in class_order:
+        try:
+            model = ModelClass.from_pretrained(**load_kwargs)
+            print(f"[utils] Loaded with {ModelClass.__name__}")
+            break
+        except Exception as e:
+            print(f"[utils]   {ModelClass.__name__} failed: {str(e)[:160]}")
+    if model is None:
+        raise RuntimeError(f"Could not load diffusion model {hf_repo}")
 
     model.eval()
     elapsed = time.time() - start
@@ -171,13 +188,21 @@ def tokenize_texts(
     tokenizer: Any,
     max_length: int = 512,
     device: str = "cuda",
+    pad_to_max: bool = True,
 ) -> Dict[str, torch.Tensor]:
-    """Tokenize a list of texts with padding & truncation."""
+    """Tokenize a list of texts with truncation and optional padding.
+
+    pad_to_max=True pads to `max_length` (needed for true batching). For
+    single-passage scoring prefer pad_to_max=False (or "longest"): padding a
+    lone short passage out to 512 EOS tokens wastes compute and, for models
+    without an attention mask (e.g. SMDM), pollutes the forward pass.
+    """
+    padding = "max_length" if pad_to_max else (len(texts) > 1)  # True ⇒ "longest"
     encodings = tokenizer(
         texts,
         max_length=max_length,
         truncation=True,
-        padding="max_length",
+        padding=padding,
         return_tensors="pt",
     )
     return {k: v.to(device) for k, v in encodings.items()}
@@ -188,9 +213,10 @@ def tokenize_single(
     tokenizer: Any,
     max_length: int = 512,
     device: str = "cuda",
+    pad_to_max: bool = True,
 ) -> Dict[str, torch.Tensor]:
     """Tokenize a single text."""
-    return tokenize_texts([text], tokenizer, max_length, device)
+    return tokenize_texts([text], tokenizer, max_length, device, pad_to_max=pad_to_max)
 
 
 # ─── Masking ──────────────────────────────────────────────────────────────────

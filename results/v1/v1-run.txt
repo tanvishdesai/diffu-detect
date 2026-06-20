@@ -1,0 +1,691 @@
+02 results:
+===========================================================
+GO/NO-GO GATE #1: MRE AUROC on clean MAGE
+============================================================
+  mre_r0.15: AUROC=0.6078  TPR@1%=0.1750  TPR@5%=0.2440  [lower=machine]  mean(H)=3.024 mean(M)=2.347
+  mre_r0.30: AUROC=0.6054  TPR@1%=0.1830  TPR@5%=0.2360  [lower=machine]  mean(H)=3.771 mean(M)=3.014
+  mre_r0.50: AUROC=0.5964  TPR@1%=0.1620  TPR@5%=0.2210  [lower=machine]  mean(H)=4.976 mean(M)=4.205
+  mre_mean: AUROC=0.6023  TPR@1%=0.1780  TPR@5%=0.2260  [lower=machine]  mean(H)=3.923 mean(M)=3.189
+
+Best: mre_r0.15 = 0.6078
+🔴 NO-GO: AUROC < 0.70. Core premise is weak. Consider pivoting.
+
+Per-generator AUROC:
+  cmv_machine_continuation_13B: AUROC=0.9995 (n=1002)
+  cmv_machine_continuation_30B: AUROC=0.9910 (n=1002)
+  cmv_machine_continuation_65B: AUROC=0.9980 (n=1003)
+  cmv_machine_continuation_7B: AUROC=0.9907 (n=1003)
+  cmv_machine_continuation_GLM130B: AUROC=0.7400 (n=1003)
+  cmv_machine_continuation_bloom_7b: AUROC=0.8150 (n=1001)
+  cmv_machine_continuation_flan_t5_base: AUROC=0.6170 (n=1002)
+  cmv_machine_continuation_flan_t5_large: AUROC=0.7470 (n=1003)
+  cmv_machine_continuation_flan_t5_small: AUROC=0.7330 (n=1001)
+  cmv_machine_continuation_flan_t5_xl: AUROC=0.6350 (n=1001)
+  cmv_machine_continuation_gpt-3.5-trubo: AUROC=0.6127 (n=1003)
+  cmv_machine_continuation_gpt_neox: AUROC=0.5623 (n=1003)
+  cmv_machine_continuation_opt_1.3b: AUROC=0.5540 (n=1003)
+  cmv_machine_continuation_opt_125m: AUROC=0.6023 (n=1006)
+  cmv_machine_continuation_opt_13b: AUROC=0.7635 (n=1002)
+  cmv_machine_continuation_opt_2.7b: AUROC=0.5155 (n=1004)
+  cmv_machine_continuation_opt_30b: AUROC=0.6643 (n=1003)
+  cmv_machine_continuation_opt_350m: AUROC=0.5175 (n=1002)
+  cmv_machine_continuation_opt_iml_max_1.3b: AUROC=0.5687 (n=1004)
+  cmv_machine_continuation_t0_3b: AUROC=0.7930 (n=1001)
+  cmv_machine_continuation_text-davinci-002: AUROC=0.5967 (n=1003)
+  cmv_machine_continuation_text-davinci-003: AUROC=0.6420 (n=1003)
+  cmv_machine_specified_gpt-3.5-trubo: AUROC=0.7020 (n=1001)
+  cmv_machine_specified_text-davinci-002: AUROC=0.6025 (n=1002)
+  cmv_machine_topical_gpt-3.5-trubo: AUROC=0.7480 (n=1001)
+  cmv_machine_topical_text-davinci-002: AUROC=0.7064 (n=1005)
+  cmv_machine_topical_text-davinci-003: AUROC=0.5017 (n=1003)
+  cnn_gpt4: AUROC=0.8940 (n=1005)
+  cnn_gpt4_para: AUROC=0.9561 (n=1009)
+  dialogsum_gpt4: AUROC=0.7375 (n=1004)
+  dialogsum_gpt4_para: AUROC=0.6056 (n=1009)
+  dialogsum_human_para: AUROC=0.8120 (n=1006)
+  eli5_machine_continuation_13B: AUROC=0.9416 (n=1005)
+  eli5_machine_continuation_30B: AUROC=0.9995 (n=1002)
+  eli5_machine_continuation_65B: AUROC=0.9925 (n=1002)
+  eli5_machine_continuation_7B: AUROC=0.9540 (n=1001)
+  eli5_machine_continuation_GLM130B: AUROC=0.7349 (n=1007)
+  eli5_machine_continuation_bloom_7b: AUROC=0.6598 (n=1004)
+  eli5_machine_continuation_flan_t5_base: AUROC=0.7775 (n=1002)
+  eli5_machine_continuation_flan_t5_large: AUROC=0.8480 (n=1001)
+  eli5_machine_continuation_flan_t5_xl: AUROC=0.7143 (n=1006)
+  eli5_machine_continuation_flan_t5_xxl: AUROC=0.5140 (n=1002)
+  eli5_machine_continuation_gpt-3.5-trubo: AUROC=0.5080 (n=1003)
+  eli5_machine_continuation_gpt_j: AUROC=0.7690 (n=1001)
+  eli5_machine_continuation_gpt_neox: AUROC=0.5885 (n=1002)
+  eli5_machine_continuation_opt_1.3b: AUROC=0.5165 (n=1002)
+  eli5_machine_continuation_opt_125m: AUROC=0.5828 (n=1005)
+  eli5_machine_continuation_opt_13b: AUROC=0.5725 (n=1004)
+  eli5_machine_continuation_opt_2.7b: AUROC=0.5203 (n=1003)
+  eli5_machine_continuation_opt_30b: AUROC=0.6420 (n=1002)
+  eli5_machine_continuation_opt_350m: AUROC=0.5416 (n=1005)
+  eli5_machine_continuation_opt_iml_30b: AUROC=0.5428 (n=1005)
+  eli5_machine_continuation_opt_iml_max_1.3b: AUROC=0.5280 (n=1005)
+  eli5_machine_continuation_t0_11b: AUROC=0.8715 (n=1002)
+  eli5_machine_continuation_t0_3b: AUROC=0.8307 (n=1003)
+  eli5_machine_continuation_text-davinci-002: AUROC=0.7490 (n=1003)
+  eli5_machine_continuation_text-davinci-003: AUROC=0.6200 (n=1001)
+  eli5_machine_specified_text-davinci-002: AUROC=0.8560 (n=1003)
+  eli5_machine_specified_text-davinci-003: AUROC=0.5300 (n=1003)
+  eli5_machine_topical_gpt-3.5-trubo: AUROC=0.6605 (n=1004)
+  eli5_machine_topical_text-davinci-002: AUROC=0.7429 (n=1007)
+  eli5_machine_topical_text-davinci-003: AUROC=0.6865 (n=1004)
+  hswag_machine_continuation_13B: AUROC=0.8928 (n=1004)
+  hswag_machine_continuation_30B: AUROC=0.9926 (n=1005)
+  hswag_machine_continuation_65B: AUROC=0.8177 (n=1004)
+  hswag_machine_continuation_7B: AUROC=0.9065 (n=1004)
+  hswag_machine_continuation_GLM130B: AUROC=0.7770 (n=1003)
+  hswag_machine_continuation_bloom_7b: AUROC=0.6930 (n=1001)
+  hswag_machine_continuation_flan_t5_base: AUROC=0.9310 (n=1001)
+  hswag_machine_continuation_flan_t5_large: AUROC=0.6905 (n=1004)
+  hswag_machine_continuation_flan_t5_small: AUROC=0.7518 (n=1005)
+  hswag_machine_continuation_flan_t5_xl: AUROC=0.7235 (n=1004)
+  hswag_machine_continuation_flan_t5_xxl: AUROC=0.5833 (n=1003)
+  hswag_machine_continuation_gpt-3.5-trubo: AUROC=0.7940 (n=1002)
+  hswag_machine_continuation_gpt_j: AUROC=0.7650 (n=1001)
+  hswag_machine_continuation_gpt_neox: AUROC=0.6924 (n=1005)
+  hswag_machine_continuation_opt_1.3b: AUROC=0.5273 (n=1003)
+  hswag_machine_continuation_opt_125m: AUROC=0.6452 (n=1004)
+  hswag_machine_continuation_opt_13b: AUROC=0.7985 (n=1002)
+  hswag_machine_continuation_opt_2.7b: AUROC=0.5477 (n=1003)
+  hswag_machine_continuation_opt_30b: AUROC=0.6220 (n=1003)
+  hswag_machine_continuation_opt_350m: AUROC=0.7140 (n=1001)
+  hswag_machine_continuation_opt_6.7b: AUROC=0.5180 (n=1001)
+  hswag_machine_continuation_opt_iml_30b: AUROC=0.6960 (n=1001)
+  hswag_machine_continuation_opt_iml_max_1.3b: AUROC=0.7660 (n=1001)
+  hswag_machine_continuation_t0_11b: AUROC=0.8750 (n=1001)
+  hswag_machine_continuation_t0_3b: AUROC=0.8320 (n=1001)
+  hswag_machine_continuation_text-davinci-002: AUROC=0.7435 (n=1004)
+  hswag_machine_continuation_text-davinci-003: AUROC=0.6005 (n=1002)
+  hswag_machine_specified_gpt-3.5-trubo: AUROC=0.9008 (n=1004)
+  hswag_machine_specified_text-davinci-002: AUROC=0.8885 (n=1002)
+  hswag_machine_specified_text-davinci-003: AUROC=0.9440 (n=1002)
+  hswag_machine_topical_gpt-3.5-trubo: AUROC=0.7907 (n=1003)
+  hswag_machine_topical_text-davinci-002: AUROC=0.7607 (n=1003)
+  hswag_machine_topical_text-davinci-003: AUROC=0.8560 (n=1001)
+  imdb_gpt4: AUROC=0.9870 (n=1003)
+  imdb_gpt4_para: AUROC=0.8235 (n=1004)
+  imdb_human_para: AUROC=0.7127 (n=1006)
+  pubmed_gpt4: AUROC=0.9003 (n=1007)
+  pubmed_gpt4_para: AUROC=0.9000 (n=1006)
+  pubmed_human_para: AUROC=0.6146 (n=1005)
+  roct_machine_continuation_13B: AUROC=0.9168 (n=1004)
+  roct_machine_continuation_30B: AUROC=0.9570 (n=1007)
+  roct_machine_continuation_65B: AUROC=0.9970 (n=1001)
+  roct_machine_continuation_7B: AUROC=0.8237 (n=1003)
+  roct_machine_continuation_GLM130B: AUROC=0.9990 (n=1005)
+  roct_machine_continuation_bloom_7b: AUROC=0.6342 (n=1006)
+  roct_machine_continuation_flan_t5_base: AUROC=0.9490 (n=1001)
+  roct_machine_continuation_flan_t5_large: AUROC=0.9690 (n=1002)
+  roct_machine_continuation_flan_t5_small: AUROC=0.8220 (n=1002)
+  roct_machine_continuation_flan_t5_xl: AUROC=0.6480 (n=1002)
+  roct_machine_continuation_flan_t5_xxl: AUROC=0.9110 (n=1001)
+  roct_machine_continuation_gpt_j: AUROC=0.7227 (n=1003)
+  roct_machine_continuation_gpt_neox: AUROC=0.7290 (n=1001)
+  roct_machine_continuation_opt_1.3b: AUROC=0.6950 (n=1005)
+  roct_machine_continuation_opt_125m: AUROC=0.6200 (n=1003)
+  roct_machine_continuation_opt_13b: AUROC=0.5997 (n=1006)
+  roct_machine_continuation_opt_2.7b: AUROC=0.5515 (n=1004)
+  roct_machine_continuation_opt_30b: AUROC=0.5940 (n=1003)
+  roct_machine_continuation_opt_350m: AUROC=0.7690 (n=1001)
+  roct_machine_continuation_opt_6.7b: AUROC=0.8960 (n=1001)
+  roct_machine_continuation_opt_iml_30b: AUROC=0.6305 (n=1002)
+  roct_machine_continuation_opt_iml_max_1.3b: AUROC=0.5070 (n=1003)
+  roct_machine_continuation_t0_11b: AUROC=0.9540 (n=1001)
+  roct_machine_continuation_t0_3b: AUROC=0.6402 (n=1004)
+  roct_machine_continuation_text-davinci-002: AUROC=0.6546 (n=1009)
+  roct_machine_continuation_text-davinci-003: AUROC=0.6134 (n=1005)
+  roct_machine_specified_gpt-3.5-trubo: AUROC=0.6070 (n=1004)
+  roct_machine_specified_text-davinci-002: AUROC=0.5560 (n=1001)
+  roct_machine_specified_text-davinci-003: AUROC=0.6002 (n=1009)
+  roct_machine_topical_gpt-3.5-trubo: AUROC=0.9960 (n=1003)
+  roct_machine_topical_text-davinci-002: AUROC=0.6445 (n=1004)
+  roct_machine_topical_text-davinci-003: AUROC=0.9397 (n=1003)
+  sci_gen_machine_continuation_13B: AUROC=0.7640 (n=1004)
+  sci_gen_machine_continuation_30B: AUROC=0.8875 (n=1004)
+  sci_gen_machine_continuation_65B: AUROC=0.5742 (n=1006)
+  sci_gen_machine_continuation_7B: AUROC=0.9870 (n=1001)
+  sci_gen_machine_continuation_GLM130B: AUROC=0.9605 (n=1002)
+  sci_gen_machine_continuation_bloom_7b: AUROC=0.9205 (n=1002)
+  sci_gen_machine_continuation_flan_t5_base: AUROC=0.8923 (n=1006)
+  sci_gen_machine_continuation_flan_t5_large: AUROC=0.7805 (n=1002)
+  sci_gen_machine_continuation_flan_t5_small: AUROC=0.8670 (n=1003)
+  sci_gen_machine_continuation_flan_t5_xl: AUROC=0.6940 (n=1001)
+  sci_gen_machine_continuation_flan_t5_xxl: AUROC=0.9200 (n=1001)
+  sci_gen_machine_continuation_gpt-3.5-trubo: AUROC=0.7862 (n=1005)
+  sci_gen_machine_continuation_gpt_j: AUROC=0.6930 (n=1001)
+  sci_gen_machine_continuation_gpt_neox: AUROC=0.9010 (n=1001)
+  sci_gen_machine_continuation_opt_1.3b: AUROC=0.8070 (n=1002)
+  sci_gen_machine_continuation_opt_125m: AUROC=0.7467 (n=1003)
+  sci_gen_machine_continuation_opt_13b: AUROC=0.5320 (n=1001)
+  sci_gen_machine_continuation_opt_2.7b: AUROC=0.5646 (n=1005)
+  sci_gen_machine_continuation_opt_30b: AUROC=0.5228 (n=1005)
+  sci_gen_machine_continuation_opt_350m: AUROC=0.6490 (n=1001)
+  sci_gen_machine_continuation_opt_6.7b: AUROC=0.5872 (n=1005)
+  sci_gen_machine_continuation_opt_iml_30b: AUROC=0.6222 (n=1004)
+  sci_gen_machine_continuation_t0_11b: AUROC=0.6855 (n=1002)
+  sci_gen_machine_continuation_t0_3b: AUROC=0.6903 (n=1003)
+  sci_gen_machine_continuation_text-davinci-002: AUROC=0.8393 (n=1003)
+  sci_gen_machine_continuation_text-davinci-003: AUROC=0.6330 (n=1001)
+  squad_machine_continuation_13B: AUROC=0.9852 (n=1006)
+  squad_machine_continuation_30B: AUROC=0.9301 (n=1007)
+  squad_machine_continuation_65B: AUROC=0.9780 (n=1001)
+  squad_machine_continuation_7B: AUROC=0.9680 (n=1001)
+  squad_machine_continuation_GLM130B: AUROC=0.9940 (n=1004)
+  squad_machine_continuation_bloom_7b: AUROC=0.8008 (n=1005)
+  squad_machine_continuation_flan_t5_base: AUROC=0.8270 (n=1001)
+  squad_machine_continuation_flan_t5_large: AUROC=0.8080 (n=1002)
+  squad_machine_continuation_flan_t5_small: AUROC=0.8363 (n=1003)
+  squad_machine_continuation_flan_t5_xl: AUROC=0.6955 (n=1004)
+  squad_machine_continuation_flan_t5_xxl: AUROC=0.5654 (n=1007)
+  squad_machine_continuation_gpt-3.5-trubo: AUROC=0.5667 (n=1004)
+  squad_machine_continuation_gpt_j: AUROC=0.8043 (n=1003)
+  squad_machine_continuation_gpt_neox: AUROC=0.5242 (n=1005)
+  squad_machine_continuation_opt_1.3b: AUROC=0.9120 (n=1002)
+  squad_machine_continuation_opt_125m: AUROC=0.5585 (n=1004)
+  squad_machine_continuation_opt_13b: AUROC=0.5290 (n=1002)
+  squad_machine_continuation_opt_2.7b: AUROC=0.9040 (n=1002)
+  squad_machine_continuation_opt_30b: AUROC=0.8330 (n=1002)
+  squad_machine_continuation_opt_350m: AUROC=0.7192 (n=1005)
+  squad_machine_continuation_opt_6.7b: AUROC=0.7643 (n=1003)
+  squad_machine_continuation_opt_iml_30b: AUROC=0.5757 (n=1003)
+  squad_machine_continuation_opt_iml_max_1.3b: AUROC=0.8004 (n=1005)
+  squad_machine_continuation_t0_11b: AUROC=0.6313 (n=1003)
+  squad_machine_continuation_t0_3b: AUROC=0.6390 (n=1001)
+  squad_machine_continuation_text-davinci-002: AUROC=0.8570 (n=1004)
+  squad_machine_continuation_text-davinci-003: AUROC=0.7159 (n=1004)
+  tldr_machine_continuation_13B: AUROC=0.9925 (n=1004)
+  tldr_machine_continuation_30B: AUROC=0.9980 (n=1003)
+  tldr_machine_continuation_65B: AUROC=0.9850 (n=1001)
+  tldr_machine_continuation_7B: AUROC=0.9940 (n=1001)
+  tldr_machine_continuation_GLM130B: AUROC=0.6808 (n=1005)
+  tldr_machine_continuation_bloom_7b: AUROC=0.6685 (n=1004)
+  tldr_machine_continuation_flan_t5_base: AUROC=0.7730 (n=1003)
+  tldr_machine_continuation_flan_t5_large: AUROC=0.7275 (n=1002)
+  tldr_machine_continuation_flan_t5_small: AUROC=0.7757 (n=1003)
+  tldr_machine_continuation_flan_t5_xl: AUROC=0.5360 (n=1002)
+  tldr_machine_continuation_flan_t5_xxl: AUROC=0.9955 (n=1002)
+  tldr_machine_continuation_gpt-3.5-trubo: AUROC=0.8005 (n=1002)
+  tldr_machine_continuation_gpt_neox: AUROC=0.7115 (n=1002)
+  tldr_machine_continuation_opt_1.3b: AUROC=0.5605 (n=1002)
+  tldr_machine_continuation_opt_125m: AUROC=0.5993 (n=1003)
+  tldr_machine_continuation_opt_2.7b: AUROC=0.5017 (n=1003)
+  tldr_machine_continuation_opt_30b: AUROC=0.5317 (n=1003)
+  tldr_machine_continuation_opt_350m: AUROC=0.7790 (n=1001)
+  tldr_machine_continuation_opt_6.7b: AUROC=0.7625 (n=1002)
+  tldr_machine_continuation_opt_iml_30b: AUROC=0.6660 (n=1003)
+  tldr_machine_continuation_t0_11b: AUROC=0.5903 (n=1003)
+  tldr_machine_continuation_t0_3b: AUROC=0.5435 (n=1002)
+  tldr_machine_continuation_text-davinci-002: AUROC=0.6187 (n=1003)
+  tldr_machine_continuation_text-davinci-003: AUROC=0.6765 (n=1002)
+  tldr_machine_specified_gpt-3.5-trubo: AUROC=0.9965 (n=1002)
+  tldr_machine_specified_text-davinci-002: AUROC=0.5530 (n=1003)
+  tldr_machine_specified_text-davinci-003: AUROC=0.6225 (n=1003)
+  tldr_machine_topical_gpt-3.5-trubo: AUROC=0.9983 (n=1003)
+  tldr_machine_topical_text-davinci-002: AUROC=0.6270 (n=1002)
+  tldr_machine_topical_text-davinci-003: AUROC=0.9913 (n=1006)
+  wp_machine_continuation_13B: AUROC=0.9550 (n=1003)
+  wp_machine_continuation_30B: AUROC=0.9963 (n=1003)
+  wp_machine_continuation_65B: AUROC=0.9700 (n=1004)
+  wp_machine_continuation_7B: AUROC=0.8845 (n=1006)
+  wp_machine_continuation_GLM130B: AUROC=0.9988 (n=1005)
+  wp_machine_continuation_bloom_7b: AUROC=0.5497 (n=1004)
+  wp_machine_continuation_flan_t5_base: AUROC=0.7760 (n=1004)
+  wp_machine_continuation_flan_t5_large: AUROC=0.6870 (n=1004)
+  wp_machine_continuation_flan_t5_small: AUROC=0.8365 (n=1002)
+  wp_machine_continuation_flan_t5_xxl: AUROC=0.8310 (n=1001)
+  wp_machine_continuation_gpt-3.5-trubo: AUROC=0.6296 (n=1005)
+  wp_machine_continuation_gpt_j: AUROC=0.6910 (n=1005)
+  wp_machine_continuation_gpt_neox: AUROC=0.5773 (n=1003)
+  wp_machine_continuation_opt_1.3b: AUROC=0.6980 (n=1001)
+  wp_machine_continuation_opt_125m: AUROC=0.5954 (n=1005)
+  wp_machine_continuation_opt_13b: AUROC=0.5070 (n=1002)
+  wp_machine_continuation_opt_2.7b: AUROC=0.6634 (n=1009)
+  wp_machine_continuation_opt_30b: AUROC=0.8060 (n=1001)
+  wp_machine_continuation_opt_350m: AUROC=0.7735 (n=1002)
+  wp_machine_continuation_opt_6.7b: AUROC=0.7910 (n=1003)
+  wp_machine_continuation_opt_iml_30b: AUROC=0.7243 (n=1006)
+  wp_machine_continuation_opt_iml_max_1.3b: AUROC=0.8083 (n=1009)
+  wp_machine_continuation_t0_11b: AUROC=0.7622 (n=1004)
+  wp_machine_continuation_t0_3b: AUROC=0.7315 (n=1002)
+  wp_machine_continuation_text-davinci-002: AUROC=0.7172 (n=1004)
+  wp_machine_continuation_text-davinci-003: AUROC=0.5390 (n=1005)
+  wp_machine_specified_gpt-3.5-trubo: AUROC=0.9872 (n=1006)
+  wp_machine_specified_text-davinci-002: AUROC=0.5670 (n=1002)
+  wp_machine_specified_text-davinci-003: AUROC=0.7165 (n=1002)
+  wp_machine_topical_gpt-3.5-trubo: AUROC=0.9868 (n=1006)
+  wp_machine_topical_text-davinci-002: AUROC=0.5430 (n=1001)
+  wp_machine_topical_text-davinci-003: AUROC=0.8852 (n=1005)
+  xsum_machine_continuation_13B: AUROC=0.8890 (n=1008)
+  xsum_machine_continuation_30B: AUROC=0.9750 (n=1004)
+  xsum_machine_continuation_65B: AUROC=0.7375 (n=1002)
+  xsum_machine_continuation_7B: AUROC=0.9795 (n=1002)
+  xsum_machine_continuation_GLM130B: AUROC=0.5790 (n=1002)
+  xsum_machine_continuation_bloom_7b: AUROC=0.6860 (n=1002)
+  xsum_machine_continuation_flan_t5_base: AUROC=0.8677 (n=1003)
+  xsum_machine_continuation_flan_t5_large: AUROC=0.8637 (n=1003)
+  xsum_machine_continuation_flan_t5_xl: AUROC=0.7559 (n=1010)
+  xsum_machine_continuation_flan_t5_xxl: AUROC=0.5557 (n=1003)
+  xsum_machine_continuation_gpt-3.5-trubo: AUROC=0.5495 (n=1004)
+  xsum_machine_continuation_gpt_j: AUROC=0.7925 (n=1002)
+  xsum_machine_continuation_gpt_neox: AUROC=0.6830 (n=1002)
+  xsum_machine_continuation_opt_1.3b: AUROC=0.6160 (n=1001)
+  xsum_machine_continuation_opt_125m: AUROC=0.5755 (n=1006)
+  xsum_machine_continuation_opt_13b: AUROC=0.6756 (n=1005)
+  xsum_machine_continuation_opt_2.7b: AUROC=0.6147 (n=1006)
+  xsum_machine_continuation_opt_30b: AUROC=0.8905 (n=1002)
+  xsum_machine_continuation_opt_350m: AUROC=0.7613 (n=1003)
+  xsum_machine_continuation_opt_6.7b: AUROC=0.6583 (n=1004)
+  xsum_machine_continuation_opt_iml_30b: AUROC=0.7390 (n=1001)
+  xsum_machine_continuation_opt_iml_max_1.3b: AUROC=0.5020 (n=1001)
+  xsum_machine_continuation_t0_11b: AUROC=0.9000 (n=1003)
+  xsum_machine_continuation_t0_3b: AUROC=0.5125 (n=1004)
+  xsum_machine_continuation_text-davinci-002: AUROC=0.6764 (n=1005)
+  xsum_machine_continuation_text-davinci-003: AUROC=0.6224 (n=1007)
+  xsum_machine_specified_gpt-3.5-trubo: AUROC=0.9988 (n=1005)
+  xsum_machine_specified_text-davinci-002: AUROC=0.5675 (n=1002)
+  xsum_machine_specified_text-davinci-003: AUROC=0.9960 (n=1006)
+  xsum_machine_topical_gpt-3.5-trubo: AUROC=0.9870 (n=1006)
+  xsum_machine_topical_text-davinci-002: AUROC=0.6220 (n=1002)
+  xsum_machine_topical_text-davinci-003: AUROC=0.9114 (n=1007)
+  yelp_machine_continuation_13B: AUROC=0.9478 (n=1004)
+  yelp_machine_continuation_65B: AUROC=0.9920 (n=1003)
+  yelp_machine_continuation_7B: AUROC=0.9827 (n=1003)
+  yelp_machine_continuation_GLM130B: AUROC=1.0000 (n=1001)
+  yelp_machine_continuation_bloom_7b: AUROC=0.6280 (n=1001)
+  yelp_machine_continuation_flan_t5_base: AUROC=0.7950 (n=1002)
+  yelp_machine_continuation_flan_t5_large: AUROC=0.7288 (n=1004)
+  yelp_machine_continuation_flan_t5_small: AUROC=0.8032 (n=1005)
+  yelp_machine_continuation_flan_t5_xl: AUROC=0.6807 (n=1004)
+  yelp_machine_continuation_flan_t5_xxl: AUROC=0.5832 (n=1004)
+  yelp_machine_continuation_gpt-3.5-trubo: AUROC=0.6400 (n=1001)
+  yelp_machine_continuation_gpt_j: AUROC=0.6105 (n=1004)
+  yelp_machine_continuation_gpt_neox: AUROC=0.7550 (n=1003)
+  yelp_machine_continuation_opt_1.3b: AUROC=0.5263 (n=1003)
+  yelp_machine_continuation_opt_125m: AUROC=0.5327 (n=1003)
+  yelp_machine_continuation_opt_13b: AUROC=0.5500 (n=1001)
+  yelp_machine_continuation_opt_2.7b: AUROC=0.7014 (n=1005)
+  yelp_machine_continuation_opt_30b: AUROC=0.6617 (n=1003)
+  yelp_machine_continuation_opt_350m: AUROC=0.6380 (n=1001)
+  yelp_machine_continuation_opt_6.7b: AUROC=0.5270 (n=1002)
+  yelp_machine_continuation_opt_iml_30b: AUROC=0.6048 (n=1005)
+  yelp_machine_continuation_opt_iml_max_1.3b: AUROC=0.6684 (n=1005)
+  yelp_machine_continuation_t0_11b: AUROC=0.7920 (n=1001)
+  yelp_machine_continuation_t0_3b: AUROC=0.8723 (n=1003)
+  yelp_machine_continuation_text-davinci-002: AUROC=0.7530 (n=1002)
+  yelp_machine_continuation_text-davinci-003: AUROC=0.6260 (n=1003)
+
+Saved distribution plot → /kaggle/working/results/mre_distributions.png
+
+============================================================
+NOTEBOOK 2 COMPLETE
+============================================================
+Results saved to: /kaggle/working/results/
+Next: Run Notebook 3 (DC + DTD scoring) or Notebook 4 (baselines)
+
+
+
+
+05_ evaluation logs:
+============================================================
+STEP 1: Aggregating scores from all notebooks
+============================================================
+  /kaggle/input/datasets/vasuaashadesai/diffudetect-mre-scores/results: 1 files
+  /kaggle/input/datasets/shilpavdesai/04-baseline-scoring-scores/results: 2 files
+
+Total files: 3
+  scores_mage_mre_smdm-1.1b.parquet: 2000 rows, scores: ['mre_r0.15', 'mre_r0.30', 'mre_r0.50', 'mre_mean']
+  scores_mage_fast_detectgpt_gpt-neo-2.7b.parquet: 2000 rows, scores: ['fdgpt_curvature', 'fdgpt_original_ll', 'fdgpt_perturb_mean_ll']
+  scores_mage_classical_gpt-neo-2.7b.parquet: 2000 rows, scores: ['cls_log_likelihood', 'cls_mean_rank', 'cls_mean_log_rank', 'cls_mean_entropy', 'cls_perplexity']
+
+Merged: 2000 rows, 19 columns
+Score columns found: ['mre_r0.15', 'mre_r0.30', 'mre_r0.50', 'mre_mean', 'fdgpt_curvature', 'cls_log_likelihood', 'cls_mean_rank', 'cls_mean_log_rank', 'cls_mean_entropy', 'cls_perplexity']
+
+============================================================
+STEP 2: Clean-Text Detection Performance (Table 1)
+============================================================
+    mre_r0.15                      AUROC=0.6078  TPR@1%=0.1750  TPR@5%=0.2440
+    mre_r0.30                      AUROC=0.6054  TPR@1%=0.1830  TPR@5%=0.2360
+    mre_r0.50                      AUROC=0.5964  TPR@1%=0.1620  TPR@5%=0.2210
+  ★ mre_mean                       AUROC=0.6023  TPR@1%=0.1780  TPR@5%=0.2260
+    fdgpt_curvature                AUROC=0.5345  TPR@1%=0.0140  TPR@5%=0.0540
+    cls_log_likelihood             AUROC=0.6329  TPR@1%=0.2310  TPR@5%=0.3450
+    cls_mean_rank                  AUROC=0.6645  TPR@1%=0.1050  TPR@5%=0.2470
+    cls_mean_log_rank              AUROC=0.6649  TPR@1%=0.2600  TPR@5%=0.3530
+    cls_mean_entropy               AUROC=nan  TPR@1%=nan  TPR@5%=nan
+    cls_perplexity                 AUROC=0.6329  TPR@1%=0.2310  TPR@5%=0.3450
+
+============================================================
+STEP 2b: Per-Generator AUROC (more meaningful than aggregate)
+============================================================
+
+  AUROC ≥ 0.90 (easy):    64 generators
+  AUROC 0.70–0.90 (medium): 110 generators
+  AUROC < 0.70 (hard):    132 generators
+
+  Top 10 generators:
+    yelp_machine_continuation_GLM130B                  mre_r0.15=1.000  mre_r0.30=1.000  mre_r0.50=1.000  mre_mean=1.000  fdgpt_curvature=0.858  cls_log_likelihood=1.000  cls_mean_rank=0.525  cls_mean_log_rank=1.000  cls_perplexity=1.000
+    tldr_machine_continuation_flan_t5_xxl              mre_r0.15=1.000  mre_r0.30=0.999  mre_r0.50=0.965  mre_mean=0.996  fdgpt_curvature=0.681  cls_log_likelihood=1.000  cls_mean_rank=0.805  cls_mean_log_rank=0.997  cls_perplexity=1.000
+    eli5_machine_continuation_30B                      mre_r0.15=1.000  mre_r0.30=0.999  mre_r0.50=1.000  mre_mean=1.000  fdgpt_curvature=0.885  cls_log_likelihood=0.997  cls_mean_rank=0.910  cls_mean_log_rank=0.999  cls_perplexity=0.997
+    cmv_machine_continuation_13B                       mre_r0.15=1.000  mre_r0.30=0.999  mre_r0.50=0.999  mre_mean=1.000  fdgpt_curvature=0.848  cls_log_likelihood=0.997  cls_mean_rank=0.974  cls_mean_log_rank=0.999  cls_perplexity=0.997
+    wp_machine_specified_gpt-3.5-trubo                 mre_r0.15=0.999  mre_r0.30=0.997  mre_r0.50=0.969  mre_mean=0.987  fdgpt_curvature=0.818  cls_log_likelihood=0.996  cls_mean_rank=0.943  cls_mean_log_rank=0.999  cls_perplexity=0.996
+    roct_machine_continuation_GLM130B                  mre_r0.15=0.999  mre_r0.30=0.999  mre_r0.50=0.999  mre_mean=0.999  fdgpt_curvature=0.866  cls_log_likelihood=0.999  cls_mean_rank=0.987  cls_mean_log_rank=1.000  cls_perplexity=0.999
+    roct_machine_topical_gpt-3.5-trubo                 mre_r0.15=0.998  mre_r0.30=0.996  mre_r0.50=0.992  mre_mean=0.996  fdgpt_curvature=0.803  cls_log_likelihood=0.995  cls_mean_rank=0.999  cls_mean_log_rank=0.998  cls_perplexity=0.995
+    xsum_machine_specified_gpt-3.5-trubo               mre_r0.15=0.998  mre_r0.30=0.998  mre_r0.50=0.998  mre_mean=0.999  fdgpt_curvature=0.881  cls_log_likelihood=0.987  cls_mean_rank=0.980  cls_mean_log_rank=0.991  cls_perplexity=0.987
+    wp_machine_continuation_GLM130B                    mre_r0.15=0.998  mre_r0.30=0.999  mre_r0.50=0.998  mre_mean=0.999  fdgpt_curvature=0.848  cls_log_likelihood=0.998  cls_mean_rank=0.824  cls_mean_log_rank=1.000  cls_perplexity=0.998
+    xsum_machine_specified_text-davinci-003            mre_r0.15=0.998  mre_r0.30=0.996  mre_r0.50=0.992  mre_mean=0.996  fdgpt_curvature=0.788  cls_log_likelihood=0.993  cls_mean_rank=0.987  cls_mean_log_rank=0.997  cls_perplexity=0.993
+
+  Bottom 10 generators:
+    xsum_machine_continuation_gpt-3.5-trubo            mre_r0.15=0.513  mre_r0.30=0.550  mre_r0.50=0.583  mre_mean=0.549  fdgpt_curvature=0.517  cls_log_likelihood=0.825  cls_mean_rank=0.601  cls_mean_log_rank=0.808  cls_perplexity=0.825
+    cmv_machine_continuation_opt_2.7b                  mre_r0.15=0.511  mre_r0.30=0.522  mre_r0.50=0.549  mre_mean=0.516  fdgpt_curvature=0.539  cls_log_likelihood=0.576  cls_mean_rank=0.615  cls_mean_log_rank=0.549  cls_perplexity=0.576
+    wp_machine_specified_text-davinci-002              mre_r0.15=0.511  mre_r0.30=0.560  mre_r0.50=0.595  mre_mean=0.567  fdgpt_curvature=0.603  cls_log_likelihood=0.987  cls_mean_rank=0.599  cls_mean_log_rank=0.996  cls_perplexity=0.987
+    squad_machine_continuation_gpt_neox                mre_r0.15=0.509  mre_r0.30=0.519  mre_r0.50=0.542  mre_mean=0.524  fdgpt_curvature=0.610  cls_log_likelihood=0.941  cls_mean_rank=0.633  cls_mean_log_rank=0.878  cls_perplexity=0.941
+    tldr_machine_continuation_opt_30b                  mre_r0.15=0.509  mre_r0.30=0.518  mre_r0.50=0.578  mre_mean=0.532  fdgpt_curvature=0.543  cls_log_likelihood=0.761  cls_mean_rank=0.529  cls_mean_log_rank=0.634  cls_perplexity=0.761
+    eli5_machine_continuation_flan_t5_xxl              mre_r0.15=0.506  mre_r0.30=0.530  mre_r0.50=0.502  mre_mean=0.514  fdgpt_curvature=0.772  cls_log_likelihood=0.814  cls_mean_rank=0.670  cls_mean_log_rank=0.748  cls_perplexity=0.814
+    squad_machine_continuation_gpt-3.5-trubo           mre_r0.15=0.505  mre_r0.30=0.560  mre_r0.50=0.612  mre_mean=0.567  fdgpt_curvature=0.565  cls_log_likelihood=0.751  cls_mean_rank=0.719  cls_mean_log_rank=0.753  cls_perplexity=0.751
+    eli5_machine_continuation_opt_2.7b                 mre_r0.15=0.505  mre_r0.30=0.543  mre_r0.50=0.517  mre_mean=0.520  fdgpt_curvature=0.577  cls_log_likelihood=0.619  cls_mean_rank=0.771  cls_mean_log_rank=0.516  cls_perplexity=0.619
+    tldr_machine_continuation_flan_t5_xl               mre_r0.15=0.503  mre_r0.30=0.531  mre_r0.50=0.583  mre_mean=0.536  fdgpt_curvature=0.792  cls_log_likelihood=0.536  cls_mean_rank=0.612  cls_mean_log_rank=0.600  cls_perplexity=0.536
+    xsum_machine_continuation_opt_iml_max_1.3b         mre_r0.15=0.500  mre_r0.30=0.503  mre_r0.50=0.502  mre_mean=0.502  fdgpt_curvature=0.515  cls_log_likelihood=0.755  cls_mean_rank=0.903  cls_mean_log_rank=0.835  cls_perplexity=0.755
+
+  Saved per-generator table → table1b_per_generator_auroc.csv
+
+============================================================
+STEP 2b: Logistic combiner (4 features)
+============================================================
+  Combined AUROC: 0.5895
+  Feature weights: {'mre_r0.15': np.float64(0.103), 'mre_r0.30': np.float64(0.046), 'mre_r0.50': np.float64(-0.288), 'mre_mean': np.float64(-0.049)}
+
+============================================================
+STEP 3: ROBUSTNESS ANALYSIS — GO/NO-GO #2
+============================================================
+No attack/clean split available for robustness analysis.
+Run RAID scoring to enable robustness experiments.
+
+============================================================
+STEP 4: Generating figures
+============================================================
+  Saved fig1_clean_auroc.png
+  Saved fig3_distributions.png
+  Saved fig4_roc_curves.png
+
+============================================================
+EVALUATION COMPLETE
+============================================================
+Output directory: /kaggle/working/analysis
+Figures: /kaggle/working/analysis/figures
+
+Files generated:
+  figures (4 KB)
+  full_aggregated.parquet (1741 KB)
+  table1_clean_auroc.csv (0 KB)
+  table1b_per_generator_auroc.csv (45 KB)
+  figures/fig1_clean_auroc.png
+  figures/fig3_distributions.png
+  figures/fig4_roc_curves.png
+
+★ DiffuDetect methods are marked with ★ in the tables above.
+Review the GO/NO-GO decision to determine next steps.
+
+
+06_mre:
+Scoring done: 9016s (3.01s/passage), 0 errors
+Saved → /kaggle/working/results/scores_raid_mre_smdm-1.1b.parquet
+
+============================================================
+QUICK ROBUSTNESS ANALYSIS
+============================================================
+
+  mre_r0.15 — Clean AUROC: 0.6415 [negated]
+    alternative_spelling AUROC=0.6529  ΔAUROC=-0.0114
+    article_deletion     AUROC=0.6508  ΔAUROC=-0.0093
+    homoglyph            AUROC=0.5925  ΔAUROC=+0.0491
+    insert_paragraphs    AUROC=0.6296  ΔAUROC=+0.0119
+    number               AUROC=0.6622  ΔAUROC=-0.0207
+    paraphrase           AUROC=0.5904  ΔAUROC=+0.0511
+    perplexity_misspelling AUROC=0.6524  ΔAUROC=-0.0108
+    synonym              AUROC=0.6333  ΔAUROC=+0.0083
+    upper_lower          AUROC=0.6570  ΔAUROC=-0.0155
+    whitespace           AUROC=0.6699  ΔAUROC=-0.0284
+    zero_width_space     AUROC=0.6214  ΔAUROC=+0.0201
+
+  mre_r0.30 — Clean AUROC: 0.6379 [negated]
+    alternative_spelling AUROC=0.6581  ΔAUROC=-0.0201
+    article_deletion     AUROC=0.6601  ΔAUROC=-0.0222
+    homoglyph            AUROC=0.6477  ΔAUROC=-0.0098
+    insert_paragraphs    AUROC=0.6260  ΔAUROC=+0.0119
+    number               AUROC=0.6756  ΔAUROC=-0.0377
+    paraphrase           AUROC=0.5826  ΔAUROC=+0.0553
+    perplexity_misspelling AUROC=0.6498  ΔAUROC=-0.0119
+    synonym              AUROC=0.6601  ΔAUROC=-0.0222
+    upper_lower          AUROC=0.6560  ΔAUROC=-0.0181
+    whitespace           AUROC=0.6446  ΔAUROC=-0.0067
+    zero_width_space     AUROC=0.5945  ΔAUROC=+0.0434
+
+  mre_r0.50 — Clean AUROC: 0.6343 [negated]
+    alternative_spelling AUROC=0.6353  ΔAUROC=-0.0010
+    article_deletion     AUROC=0.6338  ΔAUROC=+0.0005
+    homoglyph            AUROC=0.5878  ΔAUROC=+0.0465
+    insert_paragraphs    AUROC=0.6180  ΔAUROC=+0.0163
+    number               AUROC=0.6477  ΔAUROC=-0.0134
+    paraphrase           AUROC=0.5548  ΔAUROC=+0.0795
+    perplexity_misspelling AUROC=0.6405  ΔAUROC=-0.0062
+    synonym              AUROC=0.6235  ΔAUROC=+0.0108
+    upper_lower          AUROC=0.6353  ΔAUROC=-0.0010
+    whitespace           AUROC=0.6317  ΔAUROC=+0.0026
+    zero_width_space     AUROC=0.5904  ΔAUROC=+0.0439
+
+  mre_mean — Clean AUROC: 0.6451 [negated]
+    alternative_spelling AUROC=0.6477  ΔAUROC=-0.0026
+    article_deletion     AUROC=0.6508  ΔAUROC=-0.0057
+    homoglyph            AUROC=0.6152  ΔAUROC=+0.0300
+    insert_paragraphs    AUROC=0.6229  ΔAUROC=+0.0222
+    number               AUROC=0.6637  ΔAUROC=-0.0186
+    paraphrase           AUROC=0.5708  ΔAUROC=+0.0744
+    perplexity_misspelling AUROC=0.6493  ΔAUROC=-0.0041
+    synonym              AUROC=0.6441  ΔAUROC=+0.0010
+    upper_lower          AUROC=0.6477  ΔAUROC=-0.0026
+    whitespace           AUROC=0.6477  ΔAUROC=-0.0026
+    zero_width_space     AUROC=0.5971  ΔAUROC=+0.0480
+
+============================================================
+NOTEBOOK 6 COMPLETE — RAID Robustness Scoring Done
+============================================================
+Upload /kaggle/working/results/scores_raid_mre_smdm-1.1b.parquet and combine with other notebooks in Notebook 5
+to compute the final GO/NO-GO #2 decision.
+
+
+
+06_fast_detectgpt :
+Scoring done: 24468s (8.16s/passage), 0 errors
+Saved → /kaggle/working/results/scores_raid_fast_detectgpt_gpt-neo-2.7b.parquet
+
+============================================================
+QUICK ROBUSTNESS ANALYSIS
+============================================================
+  fdgpt_curvature — Clean AUROC: 0.5439 [negated]
+    alternative_spelling AUROC=0.4886  ΔAUROC=+0.0553
+    article_deletion     AUROC=0.4618  ΔAUROC=+0.0821
+    homoglyph            AUROC=0.5165  ΔAUROC=+0.0274
+    insert_paragraphs    AUROC=0.5868  ΔAUROC=-0.0429
+    number               AUROC=0.4551  ΔAUROC=+0.0888
+    paraphrase           AUROC=0.5336  ΔAUROC=+0.0103
+    perplexity_misspelling AUROC=0.5408  ΔAUROC=+0.0031
+    synonym              AUROC=0.4649  ΔAUROC=+0.0790
+    upper_lower          AUROC=0.4566  ΔAUROC=+0.0873
+    whitespace           AUROC=0.4194  ΔAUROC=+0.1245
+    zero_width_space     AUROC=0.5780  ΔAUROC=-0.0341
+
+============================================================
+NOTEBOOK 6 COMPLETE — RAID Robustness Scoring Done
+============================================================
+Upload /kaggle/working/results/scores_raid_fast_detectgpt_gpt-neo-2.7b.parquet and combine with other notebooks in Notebook 5
+to compute the final GO/NO-GO #2 decision.
+
+
+
+
+08_head-to-head logs:
+MRE scores: 2000 rows from /kaggle/input/datasets/vasuaashadesai/diffudetect-mre-scores/results/scores_mage_mre_smdm-1.1b.parquet
+  Merged classical scores: ['cls_log_likelihood', 'cls_mean_rank', 'cls_mean_log_rank', 'cls_mean_entropy', 'cls_perplexity']
+  Merged FDGPT scores: ['fdgpt_curvature', 'fdgpt_original_ll', 'fdgpt_perturb_mean_ll']
+
+Final merged dataset: 2000 rows
+Columns: ['id', 'text', 'label', 'generator', 'domain', 'dataset', 'attack', 'mre_r0.15', 'mre_r0.30', 'mre_r0.50', 'mre_mean', 'cls_log_likelihood', 'cls_mean_rank', 'cls_mean_log_rank', 'cls_mean_entropy', 'cls_perplexity', 'fdgpt_curvature', 'fdgpt_original_ll', 'fdgpt_perturb_mean_ll']
+Labels: {0: 1000, 1: 1000}
+
+======================================================================
+PART 1: PER-GENERATOR AUROC — MRE vs FDGPT vs CLASSICAL
+======================================================================
+Found 306 machine generators
+
+======================================================================
+PER-MODEL-FAMILY MEAN AUROC
+======================================================================
+                  auroc_MRE (SMDM)  auroc_Fast-DetectGPT  auroc_Classical Rank  auroc_Classical LL  n_generators
+model_family                                                                                                    
+LLaMA-7B                    0.9470                0.8098                0.8110              0.9641            10
+LLaMA-65B                   0.9042                0.7553                0.8494              0.9432            10
+GPT-4                       0.8505                0.6834                0.7447              0.8199             8
+GLM-130B                    0.8464                0.7391                0.8230              0.9447            10
+Flan-T5-base                0.8206                0.8569                0.7036              0.7292            10
+Flan-T5-small               0.8032                0.8381                0.6655              0.6982             8
+Flan-T5-large               0.7850                0.8126                0.6974              0.6701            10
+T0-11b                      0.7847                0.7816                0.6995              0.7884             9
+GPT-3.5                     0.7839                0.6736                0.8047              0.8861            22
+LLaMA-13B                   0.7796                0.7099                0.7772              0.8896            19
+LLaMA-30B                   0.7606                0.7137                0.7863              0.7916            28
+GPT-J-6B                    0.7310                0.8442                0.7522              0.5780             8
+Flan-T5-xxl                 0.7177                0.7520                0.6521              0.7914             9
+text-davinci-003            0.7161                0.6641                0.8294              0.9130            23
+T0-3b                       0.7085                0.7812                0.7283              0.7160            10
+7b                          0.7055                0.6738                0.7104              0.6581            10
+OPT-6.7b                    0.6880                0.7190                0.7036              0.6235             8
+OPT-350m                    0.6862                0.6776                0.6490              0.7629            10
+text-davinci-002            0.6851                0.6749                0.7803              0.8690            24
+Flan-T5-xl                  0.6759                0.7880                0.7888              0.7085             9
+GPT-NeoX-20B                0.6724                0.6525                0.6809              0.8234            10
+OPT-1.3b                    0.6423                0.6468                0.7611              0.6331            18
+OPT-2.7b                    0.6085                0.6050                0.6870              0.6148            10
+OPT-125m                    0.6058                0.5821                0.6244              0.6461            10
+
+======================================================================
+KEY FIGURE: MRE vs Fast-DetectGPT per-generator scatter
+======================================================================
+/tmp/ipykernel_23/1988047337.py:247: MatplotlibDeprecationWarning: The get_cmap function was deprecated in Matplotlib 3.7 and will be removed in 3.11. Use ``matplotlib.colormaps[name]`` or ``matplotlib.colormaps.get_cmap()`` or ``pyplot.get_cmap()`` instead.
+  cmap = plt.cm.get_cmap("tab20", len(families))
+
+Saved → /kaggle/working/results/mre_vs_fdgpt_scatter.png
+
+  MRE wins: 176, FDGPT wins: 127, ties: 0
+  MRE mean AUROC: 0.7423
+  FDGPT mean AUROC: 0.7143
+
+  Detectable (AUROC≥0.85) by:
+    MRE only:  53
+    FDGPT only: 25
+    Both:      30
+    Either:    108 / 303 (35.6%)
+
+======================================================================
+PART 2: LOGISTIC COMBINER — MRE + FDGPT + Classical
+======================================================================
+Available features: ['mre_mean', 'mre_r0.15', 'mre_r0.30', 'mre_r0.50', 'fdgpt_curvature', 'cls_log_likelihood', 'cls_mean_rank', 'cls_mean_entropy', 'cls_perplexity']
+Warning: Feature 'cls_mean_entropy' is completely NaN. Dropping it.
+Valid samples: 2000 / 2000
+
+Combination               Features  5-fold CV AUROC
+--------------------------------------------------
+  MRE only                    4  0.5937 ± 0.0366
+  FDGPT only                  1  0.5338 ± 0.0482
+  Classical only              3  0.6272 ± 0.0246
+  MRE + FDGPT                 5  0.6082 ± 0.0358
+  MRE + Classical             7  0.6218 ± 0.0260
+  All features                8  0.6343 ± 0.0282
+
+--- Final Combined Detector ---
+  Combined AUROC (train): 0.6460
+
+  Feature weights:
+    fdgpt_curvature          : -0.5575
+    mre_r0.50                : -0.5534
+    cls_log_likelihood       : +0.5143
+    mre_r0.15                : +0.4592
+    mre_r0.30                : -0.3159
+    mre_mean                 : -0.1476
+    cls_perplexity           : +0.0680
+    cls_mean_rank            : +0.0346
+
+Saved → /kaggle/working/results/roc_combined.png
+
+
+04_baseline-results-logs:
+============================================================
+CLASSICAL BASELINES (log-lik, rank, entropy)
+============================================================
+Classical: 100%|██████████| 2000/2000 [09:11<00:00,  3.62it/s]
+Classical AUROCs:
+  cls_log_likelihood: AUROC=0.6329  mean(H)=-3.011  mean(M)=-2.655
+  cls_mean_rank: AUROC=0.6645  mean(H)=136.432  mean(M)=97.142
+  cls_perplexity: AUROC=0.6329  mean(H)=30.453  mean(M)=19.181
+
+============================================================
+FAST-DETECTGPT
+============================================================
+Fast-DetectGPT: 100%|██████████| 2000/2000 [7:45:16<00:00, 13.96s/it]
+Fast-DetectGPT Curvature AUROC: 0.5345
+
+============================================================
+NOTEBOOK 4 COMPLETE — Baselines Done
+
+
+06_classical-logs:
+Scoring done: 949s (0.32s/passage), 0 errors
+Saved → /kaggle/working/results/scores_raid_classical_gpt-neo-2.7b.parquet
+
+============================================================
+QUICK ROBUSTNESS ANALYSIS
+============================================================
+
+  cls_log_likelihood — Clean AUROC: 0.7169 [raw]
+    alternative_spelling AUROC=0.7123  ΔAUROC=+0.0046
+    article_deletion     AUROC=0.7102  ΔAUROC=+0.0067
+    homoglyph            AUROC=0.6214  ΔAUROC=+0.0956
+    insert_paragraphs    AUROC=0.6818  ΔAUROC=+0.0351
+    number               AUROC=0.7350  ΔAUROC=-0.0181
+    paraphrase           AUROC=0.7035  ΔAUROC=+0.0134
+    perplexity_misspelling AUROC=0.7107  ΔAUROC=+0.0062
+    synonym              AUROC=0.6715  ΔAUROC=+0.0455
+    upper_lower          AUROC=0.6999  ΔAUROC=+0.0170
+    whitespace           AUROC=0.6942  ΔAUROC=+0.0227
+    zero_width_space     AUROC=0.4964  ΔAUROC=+0.2206
+  cls_mean_rank — Clean AUROC: 0.7443 [negated]
+    alternative_spelling AUROC=0.7278  ΔAUROC=+0.0165
+    article_deletion     AUROC=0.7371  ΔAUROC=+0.0072
+    homoglyph            AUROC=0.5491  ΔAUROC=+0.1952
+    insert_paragraphs    AUROC=0.7149  ΔAUROC=+0.0294
+    number               AUROC=0.7200  ΔAUROC=+0.0243
+    paraphrase           AUROC=0.7831  ΔAUROC=-0.0387
+    perplexity_misspelling AUROC=0.7128  ΔAUROC=+0.0315
+    synonym              AUROC=0.7014  ΔAUROC=+0.0429
+    upper_lower          AUROC=0.6240  ΔAUROC=+0.1204
+    whitespace           AUROC=0.6808  ΔAUROC=+0.0635
+    zero_width_space     AUROC=0.6942  ΔAUROC=+0.0501
+
+  cls_perplexity — Clean AUROC: 0.7169 [negated]
+    alternative_spelling AUROC=0.7123  ΔAUROC=+0.0046
+    article_deletion     AUROC=0.7102  ΔAUROC=+0.0067
+    homoglyph            AUROC=0.6214  ΔAUROC=+0.0956
+    insert_paragraphs    AUROC=0.6818  ΔAUROC=+0.0351
+    number               AUROC=0.7350  ΔAUROC=-0.0181
+    paraphrase           AUROC=0.7035  ΔAUROC=+0.0134
+    perplexity_misspelling AUROC=0.7107  ΔAUROC=+0.0062
+    synonym              AUROC=0.6715  ΔAUROC=+0.0455
+    upper_lower          AUROC=0.6999  ΔAUROC=+0.0170
+    whitespace           AUROC=0.6942  ΔAUROC=+0.0227
+    zero_width_space     AUROC=0.4964  ΔAUROC=+0.2206
+
+============================================================
+NOTEBOOK 6 COMPLETE — RAID Robustness Scoring Done

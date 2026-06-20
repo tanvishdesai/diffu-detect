@@ -63,7 +63,9 @@ class ClassicalScorer:
             input_ids=input_ids,
             attention_mask=attention_mask,
         )
-        logits = outputs.logits  # (1, seq_len, vocab)
+        # float32 BEFORE softmax/log: in fp16 the entropy sum over a large vocab
+        # overflows → NaN (this was the cls_mean_entropy=nan bug in v1).
+        logits = outputs.logits.float()  # (1, seq_len, vocab)
 
         # Shift for next-token prediction
         shift_logits = logits[:, :-1, :]      # (1, seq_len-1, vocab)

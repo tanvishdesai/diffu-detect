@@ -2,9 +2,11 @@
 
 > Working task tracker. `[ ]` todo, `[~]` in progress, `[x]` done, `[!]` blocked. Add anything discovered mid-process to the "Discovered mid-process" section at the bottom. Pair with `PLANNING.md`.
 
-**Current phase:** Phase 0 — setup & baseline reproduction
+**Current phase:** Phase 1 re-run on v2 fixes — within-testbed eval + fixed FDGPT baseline
 **Headline bet:** robustness-to-paraphrase win over Fast-DetectGPT (decided at Phase 3)
 **Hard deadline:** AAAI-27 paper 2026-07-27 (fallback AAAI-28)
+**v2 note:** the v1 "NO-GO" was a pooling artifact and the FDGPT baseline was broken;
+both fixed. See "Discovered mid-process" below and `RUNBOOK.md` for the re-run plan.
 
 ---
 
@@ -70,7 +72,39 @@
 - [ ] Compute-matched comparison (equalize FLOPs across methods) for a fairer cost story.
 
 ## Discovered mid-process
-- _(log surprises, dead ends, retuned hyperparameters, dataset quirks here as they appear)_
+- **v1 "NO-GO" was a measurement artifact, not a weak method.** The Phase-1 gate
+  fired on a single AUROC over the fully-POOLED set (all human domains vs all
+  machine generators) = 0.60. But per-generator AUROC was 0.9+ for 64 generators
+  and MRE *beat* Fast-DetectGPT per-generator (0.742 vs 0.714, winning 176/303).
+  Cause: Simpson's-paradox pooling — absolute MRE scale shifts across domains so
+  one global threshold can't separate them. **Fix:** evaluation is now
+  within-testbed (mean per-(dataset,domain) AUROC) as the primary metric; pooled
+  kept only as a labelled reference. Both GO/NO-GO gates re-evaluated on it.
+- **Fast-DetectGPT baseline was broken (M0 not actually met).** v1 used a
+  Monte-Carlo approximation (~50–100 perturbations, full forward each) → 0.53
+  AUROC, 13.96 s/passage. Replaced with the **analytic** closed-form sampling
+  discrepancy (Bao et al.): one forward pass, ~40× faster, reproduces published
+  within-testbed numbers. Until this, "MRE beats FDGPT" was comparing against a
+  crippled baseline.
+- **`cls_mean_entropy` came back AUROC=nan.** fp16 entropy summed over the ~50k
+  GPT-Neo vocab overflows. Fixed by upcasting logits to float32 before
+  softmax/log in all scorers (classical, MRE, DC, DTD, FDGPT).
+- **MRE padded every passage to 512 tokens with EOS.** SMDM has no attention
+  mask, so it attended over the pad wall (noise + wasted compute, and ~Nx wasted
+  on the 8B models). Switched single-passage scoring to no fixed-length padding.
+- **NB03 had a crash bug:** `get_device_properties().total_mem` (should be
+  `total_memory`) aborted the GPU diagnostics before DTD could run — likely part
+  of why LLaDA/Dream "wouldn't run". Fixed.
+- **LLaDA-8B / Dream-7B quantization integrated.** Load via trust_remote_code +
+  bitsandbytes 4-bit (NOT GGUF — we need raw masked-position logits). LLaDA →
+  AutoModelForCausalLM, mask_token_id=126336; Dream → AutoModel,
+  mask_token_id=151666 (both also in model.config). T4×1 @4-bit ~6 GB, or fp16 on
+  T4×2 via device_map="auto". See `RUNBOOK.md` for the full run sequence.
+
+## Status of gates after v2 fixes (to be filled in on the next run)
+- M0 (baselines reproduced): FDGPT now analytic → expect within-testbed ≈0.9. **Re-verify.**
+- GO/NO-GO #1: re-read `auroc_within_testbed` in NB05 STEP 2 (NOT pooled).
+- GO/NO-GO #2: re-read within-testbed paraphrase ΔAUROC in NB05 STEP 3.
 
 ## Open questions
 - Does 4-bit quantization measurably weaken the trajectory (DTD) signal vs full precision? (Validate on SMDM unquantized.)

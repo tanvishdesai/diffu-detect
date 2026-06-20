@@ -52,7 +52,7 @@ print(f"Data directory: {DATA_DIR}")
 from datasets import load_dataset
 
 print("Loading MAGE dataset...")
-mage_ds = load_dataset("yaful/MAGE", trust_remote_code=True)
+mage_ds = load_dataset("yaful/MAGE")
 print(f"MAGE splits: {list(mage_ds.keys())}")
 
 # Convert to pandas
@@ -71,26 +71,38 @@ else:
 
 print(f"\nMAGE selected: {len(mage_df)} rows")
 print(f"Columns: {list(mage_df.columns)}")
-print(f"Label distribution:\n{mage_df['label'].value_counts()}")
-if "source_model" in mage_df.columns:
-    print(f"\nGenerators:\n{mage_df['source_model'].value_counts()}")
-if "category" in mage_df.columns:
-    print(f"\nDomains:\n{mage_df['category'].value_counts()}")
+print(f"Label distribution (RAW, before flip):\n{mage_df['label'].value_counts()}")
+if "src" in mage_df.columns:
+    print(f"\nGenerators (src column):\n{mage_df['src'].value_counts().head(20)}")
 
 # ─── Cell 4: Standardize MAGE columns ────────────────────────────────────────
 
-# Rename columns to our canonical schema
-rename_map = {}
-for src, dst in [
-    ("text", "text"), ("content", "text"),
-    ("label", "label"), ("is_machine", "label"),
-    ("source_model", "generator"), ("model", "generator"),
-    ("category", "domain"), ("domain", "domain"),
-]:
-    if src in mage_df.columns and dst not in rename_map.values():
-        rename_map[src] = dst
+# ======================================================================
+# FIX: MAGE label convention is INVERTED:
+#   label=0 → machine-generated,  label=1 → human-written
+# We flip to our canonical format:
+#   label=0 → human,  label=1 → machine
+# ======================================================================
+mage_df["label"] = 1 - mage_df["label"].astype(int)
+print("\nMAGE labels FLIPPED: now label=0→human, label=1→machine")
+print(f"Label distribution (after flip):\n{mage_df['label'].value_counts()}")
 
-mage_df = mage_df.rename(columns=rename_map)
+# FIX: MAGE uses 'src' column (not 'source_model' or 'category')
+if "src" in mage_df.columns:
+    mage_df["generator"] = mage_df["src"]
+    # Extract domain from src (format: domain_human or domain_machine_...)
+    mage_df["domain"] = mage_df["src"].str.split("_").str[0]
+else:
+    # Fallback for other column names
+    rename_map = {}
+    for src_col, dst_col in [
+        ("text", "text"), ("content", "text"),
+        ("source_model", "generator"), ("model", "generator"),
+        ("category", "domain"),
+    ]:
+        if src_col in mage_df.columns and dst_col not in rename_map.values():
+            rename_map[src_col] = dst_col
+    mage_df = mage_df.rename(columns=rename_map)
 
 # Ensure required columns
 if "generator" not in mage_df.columns:
@@ -101,7 +113,6 @@ if "domain" not in mage_df.columns:
 mage_df["dataset"] = "mage"
 mage_df["attack"] = "none"
 mage_df["id"] = [f"mage_{i}" for i in range(len(mage_df))]
-mage_df["label"] = mage_df["label"].astype(int)
 
 print(f"\nStandardized MAGE: {len(mage_df)} rows")
 print(f"Columns: {list(mage_df.columns)}")

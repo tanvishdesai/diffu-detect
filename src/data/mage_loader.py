@@ -8,9 +8,11 @@ Loads the MAGE dataset (yaful/MAGE on HuggingFace) and carves it into:
 
 MAGE structure (key columns):
   - text: the passage
-  - label: 0 = human, 1 = machine
-  - category: domain (e.g., "writing_prompts", "news", "reviews", etc.)
-  - source_model: which LLM generated the text (e.g., "chatgpt", "davinci", etc.)
+  - label: 0 = machine, 1 = human (INVERTED from our convention!)
+  - src: which LLM generated the text (e.g., "cmv_human", "cmv_machine_continuation_gpt-3.5-trubo", etc.)
+
+IMPORTANT: MAGE uses label=0→machine, label=1→human. We flip to
+label=0→human, label=1→machine for consistency with all our code.
 """
 
 import os
@@ -50,7 +52,7 @@ def load_mage_raw(
     spec = DATASETS["mage"]
 
     try:
-        ds = load_dataset(spec.hf_repo, cache_dir=cache_dir, trust_remote_code=True)
+        ds = load_dataset(spec.hf_repo, cache_dir=cache_dir)
     except Exception as e:
         print(f"[MAGE] Error loading from HF: {e}")
         print("[MAGE] Attempting to load from local cache or Kaggle dataset...")
@@ -84,8 +86,8 @@ def load_mage_raw(
             col_map[candidate] = "label"
             break
 
-    # generator column
-    for candidate in ["source_model", "model", "generator", "source"]:
+    # generator column — MAGE uses 'src'
+    for candidate in ["src", "source_model", "model", "generator", "source"]:
         if candidate in df.columns:
             col_map[candidate] = "generator"
             break
@@ -113,6 +115,20 @@ def load_mage_raw(
 
     # Ensure label is binary int
     df["label"] = df["label"].astype(int)
+
+    # ======================================================================
+    # FIX: MAGE label convention is INVERTED:
+    #   label=0 → machine-generated,  label=1 → human-written
+    # Flip to our canonical format:
+    #   label=0 → human,  label=1 → machine
+    # ======================================================================
+    df["label"] = 1 - df["label"]
+    print("[MAGE] Labels FLIPPED: now label=0→human, label=1→machine")
+
+    # Extract domain from generator/src (format: domain_human or domain_machine_...)
+    if "domain" not in df.columns or (df["domain"] == "unknown").all():
+        if "generator" in df.columns:
+            df["domain"] = df["generator"].str.split("_").str[0]
 
     if max_samples and len(df) > max_samples:
         df = df.sample(n=max_samples, random_state=42).reset_index(drop=True)

@@ -120,7 +120,7 @@ class DCScorer:
             else:
                 logits = outputs
 
-            log_probs = F.log_softmax(logits, dim=-1)
+            log_probs = F.log_softmax(logits.float(), dim=-1)
             true_log_probs = log_probs.gather(
                 dim=-1, index=true_tokens.unsqueeze(-1)
             ).squeeze(-1)

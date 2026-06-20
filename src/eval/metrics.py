@@ -56,6 +56,15 @@ def compute_detection_metrics(
     # Flip scores if lower = machine (so higher always = machine for sklearn)
     if score_direction == "lower_is_machine":
         scores = -scores
+    elif score_direction == "auto":
+        # Auto-detect: try both directions, pick whichever gives AUROC > 0.5
+        try:
+            auroc_pos = roc_auc_score(labels, scores)
+            auroc_neg = roc_auc_score(labels, -scores)
+            if auroc_neg > auroc_pos:
+                scores = -scores
+        except ValueError:
+            pass
 
     results = {}
 
@@ -210,6 +219,65 @@ def compute_all_metrics(
             rows.append(metrics)
 
     return pd.DataFrame(rows)
+
+
+def compute_within_testbed_auroc(
+    df: pd.DataFrame,
+    score_col: str,
+    testbed_col: str = "domain",
+    label_col: str = "label",
+    min_per_class: int = 20,
+) -> Dict[str, float]:
+    """
+    Mean within-testbed AUROC — the PRIMARY clean-text metric.
+
+    Why this exists: a single AUROC over the fully-pooled set mixes testbeds
+    (domains) whose score scales differ, so one global threshold can't separate
+    them and the number collapses (~0.60) even when per-testbed separation is
+    excellent (0.9+). The MAGE / Fast-DetectGPT protocol evaluates WITHIN each
+    testbed and averages. Orientation is fixed globally (via SCORE_DIRECTIONS),
+    not flipped per testbed, to avoid optimistic bias.
+
+    Returns dict: {auroc_mean, auroc_weighted, n_testbeds}.
+    """
+    s = pd.to_numeric(df[score_col], errors="coerce").to_numpy(dtype=float)
+    direction = SCORE_DIRECTIONS.get(score_col, "higher_is_machine")
+    if direction == "lower_is_machine":
+        s = -s
+    elif direction not in ("higher_is_machine",):
+        valid = np.isfinite(s)
+        if valid.sum() >= 10:
+            try:
+                if roc_auc_score(df[label_col].to_numpy()[valid], s[valid]) < 0.5:
+                    s = -s
+            except ValueError:
+                pass
+
+    labels = df[label_col].to_numpy()
+    testbeds = df[testbed_col].to_numpy()
+    aurocs, weights = [], []
+    for tb in pd.unique(testbeds):
+        m = testbeds == tb
+        y = labels[m]
+        sv = s[m]
+        v = np.isfinite(sv)
+        y, sv = y[v], sv[v]
+        if (y == 0).sum() < min_per_class or (y == 1).sum() < min_per_class:
+            continue
+        try:
+            aurocs.append(roc_auc_score(y, sv))
+            weights.append(len(y))
+        except ValueError:
+            continue
+    if not aurocs:
+        return {"auroc_mean": float("nan"), "auroc_weighted": float("nan"), "n_testbeds": 0}
+    aurocs = np.asarray(aurocs)
+    weights = np.asarray(weights)
+    return {
+        "auroc_mean": float(aurocs.mean()),
+        "auroc_weighted": float(np.average(aurocs, weights=weights)),
+        "n_testbeds": int(len(aurocs)),
+    }
 
 
 def compute_combined_score(

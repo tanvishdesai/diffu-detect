@@ -149,10 +149,9 @@ class MREScorer:
         else:
             logits = outputs
 
-        # Compute NLL at masked positions only
+        # Compute NLL at masked positions only (float32 for stability)
         # logits: (1, seq_len, vocab_size)
-        # true_tokens: (1, seq_len)
-        log_probs = F.log_softmax(logits, dim=-1)  # (1, seq_len, vocab_size)
+        log_probs = F.log_softmax(logits.float(), dim=-1)  # (1, seq_len, vocab_size)
 
         # Gather log-probs of the true tokens
         true_log_probs = log_probs.gather(
@@ -164,7 +163,7 @@ class MREScorer:
         masked_nlls = -true_log_probs[bool_mask]  # (n_masked,)
 
         if len(masked_nlls) == 0:
-            return 0.0
+            return float("nan")
 
         return masked_nlls.mean().item()
 
@@ -185,8 +184,9 @@ class MREScorer:
         mask_ratios = mask_ratios or self.config.mask_ratios
         num_draws = num_draws or self.config.num_mask_draws
 
-        # Tokenize
-        encoding = tokenize_single(text, self.tokenizer, max_length, self.device)
+        # Tokenize (no fixed-length padding: batch=1, score at true length)
+        encoding = tokenize_single(text, self.tokenizer, max_length, self.device,
+                                   pad_to_max=False)
         input_ids = encoding["input_ids"]
         attention_mask = encoding["attention_mask"]
 

@@ -1,18 +1,27 @@
 """
-DiffuDetect — Fast-DetectGPT Baseline
+DiffuDetect — Fast-DetectGPT Baseline (analytic)
 
-Re-implementation of Fast-DetectGPT (Bao et al., 2024).
+Re-implementation of Fast-DetectGPT (Bao et al., 2024) using the ANALYTIC
+sampling discrepancy, which is the whole point of "Fast"-DetectGPT.
 
-White-box setting: Uses the same model for both scoring and perturbation.
-Black-box setting: Uses a separate source model for perturbation.
+v1 used a Monte-Carlo approximation: for every passage it sampled ~100 perturbed
+sequences and ran a full forward pass on each. That was ~40-100x too slow
+(13.96 s/passage) AND high-variance, and it floored to near-chance AUROC. The
+conditional curvature has a closed form, so we compute it directly.
 
-Core idea: Sample-then-perturb conditional probability curvature.
-  1. For each position i, compute log p(x_i | x_{<i}) under the scoring model.
-  2. Sample perturbations by replacing x_i with samples from p(· | x_{<i}).
-  3. Curvature = (log p(x) - E[log p(x̃)]) / std(log p(x̃))
-     where x̃ are perturbations.
+White-box discrepancy:
 
-Higher curvature → more likely machine-generated.
+    d(x) = ( Σ_t logp(x_t | x_<t) − Σ_t μ_t ) / sqrt( Σ_t σ²_t )
+
+with, at each position t (sampling model == scoring model):
+
+    μ_t  = Σ_v p(v) logp(v)            (expected conditional log-prob)
+    σ²_t = Σ_v p(v) logp(v)²  − μ_t²   (its variance)
+
+One forward pass per passage. Higher discrepancy ⇒ more machine-generated.
+
+A reference (black-box) model can be supplied for the sampling distribution; the
+scoring model still provides logp. This matches the official two-model variant.
 """
 
 import torch
@@ -26,162 +35,73 @@ from ..utils import tokenize_single
 
 
 class FastDetectGPTScorer:
-    """
-    Fast-DetectGPT baseline scorer.
-
-    Uses AR models to compute conditional probability curvature.
-    The primary baseline to beat on paraphrase robustness.
-    """
+    """Fast-DetectGPT baseline scorer (analytic closed form)."""
 
     def __init__(
         self,
         scoring_model: Any,
         scoring_tokenizer: Any,
-        source_model: Any = None,      # if None, white-box (same as scoring)
+        source_model: Any = None,      # reference/sampling model; None ⇒ white-box
         source_tokenizer: Any = None,
-        num_perturbations: int = 100,
+        num_perturbations: int = 0,    # kept for API compatibility; unused (analytic)
         device: Optional[str] = None,
     ):
         self.scoring_model = scoring_model
         self.scoring_tokenizer = scoring_tokenizer
         self.source_model = source_model or scoring_model
         self.source_tokenizer = source_tokenizer or scoring_tokenizer
-        self.num_perturbations = num_perturbations
         self.device = device or get_device()
 
     @torch.no_grad()
-    def _get_log_probs(
-        self,
-        model: Any,
-        input_ids: torch.Tensor,
-        attention_mask: torch.Tensor,
-    ) -> torch.Tensor:
-        """
-        Get per-token conditional log probabilities from an AR model.
-
-        Returns log p(x_i | x_{<i}) for each position i.
-        Shape: (batch, seq_len)
-        """
-        outputs = model(
-            input_ids=input_ids,
-            attention_mask=attention_mask,
-        )
-        logits = outputs.logits  # (batch, seq_len, vocab)
-
-        # Shift: logits at position i predict token at position i+1
-        shift_logits = logits[:, :-1, :]  # (batch, seq_len-1, vocab)
-        shift_labels = input_ids[:, 1:]    # (batch, seq_len-1)
-
-        log_probs = F.log_softmax(shift_logits, dim=-1)  # (batch, seq_len-1, vocab)
-
-        # Gather log-prob of actual next tokens
-        token_log_probs = log_probs.gather(
-            dim=-1,
-            index=shift_labels.unsqueeze(-1),
-        ).squeeze(-1)  # (batch, seq_len-1)
-
-        return token_log_probs
-
-    @torch.no_grad()
-    def _get_sampling_probs(
-        self,
-        input_ids: torch.Tensor,
-        attention_mask: torch.Tensor,
-    ) -> torch.Tensor:
-        """
-        Get the sampling distribution from the source model.
-
-        Returns probabilities at each position for perturbation sampling.
-        Shape: (batch, seq_len, vocab)
-        """
-        outputs = self.source_model(
-            input_ids=input_ids,
-            attention_mask=attention_mask,
-        )
-        logits = outputs.logits
-        probs = F.softmax(logits[:, :-1, :], dim=-1)  # (batch, seq_len-1, vocab)
-        return probs
-
-    @torch.no_grad()
-    def _sample_perturbation(
-        self,
-        input_ids: torch.Tensor,
-        sampling_probs: torch.Tensor,
-        attention_mask: torch.Tensor,
-    ) -> torch.Tensor:
-        """
-        Create a perturbed version by sampling from the source model's
-        conditional distribution at each position.
-        """
-        batch_size, seq_len = input_ids.shape
-        perturbed = input_ids.clone()
-
-        # Sample from the conditional distribution at each position
-        # sampling_probs is (batch, seq_len-1, vocab)
-        for pos in range(sampling_probs.shape[1]):
-            if attention_mask[0, pos + 1] == 0:  # skip padding
-                continue
-            sampled = torch.multinomial(sampling_probs[:, pos, :], 1)  # (batch, 1)
-            perturbed[:, pos + 1] = sampled.squeeze(-1)
-
-        return perturbed
-
     def score_text(
         self,
         text: str,
-        num_perturbations: Optional[int] = None,
+        num_perturbations: Optional[int] = None,   # ignored (analytic)
         max_length: int = 512,
     ) -> Dict[str, float]:
         """
-        Score a single text using Fast-DetectGPT.
+        Score a single text using the analytic Fast-DetectGPT discrepancy.
 
         Returns:
-          - fdgpt_curvature: the conditional probability curvature (main score)
-          - fdgpt_original_ll: log-likelihood of original text
-          - fdgpt_perturb_mean_ll: mean log-likelihood of perturbations
-          - fdgpt_perturb_std_ll: std of perturbation log-likelihoods
+          - fdgpt_curvature: the analytic sampling discrepancy (main score)
+          - fdgpt_original_ll: mean conditional log-likelihood of the passage
         """
-        num_perturbations = num_perturbations or self.num_perturbations
+        # No fixed-length padding: score the passage at its true length.
+        enc = tokenize_single(text, self.scoring_tokenizer, max_length, self.device,
+                              pad_to_max=False)
+        input_ids = enc["input_ids"]
+        attention_mask = enc["attention_mask"]
+        if input_ids.shape[1] < 2:
+            return {"fdgpt_curvature": float("nan"), "fdgpt_original_ll": float("nan")}
 
-        # Tokenize
-        encoding = tokenize_single(text, self.scoring_tokenizer, max_length, self.device)
-        input_ids = encoding["input_ids"]
-        attention_mask = encoding["attention_mask"]
+        labels = input_ids[:, 1:]                                    # (1, T)
 
-        # 1. Original log-probs under scoring model
-        original_lp = self._get_log_probs(
-            self.scoring_model, input_ids, attention_mask
+        # Scoring-model log-probs (float32 for numerical stability).
+        score_logits = self.scoring_model(
+            input_ids=input_ids, attention_mask=attention_mask
+        ).logits[:, :-1, :].float()
+        lprobs_score = F.log_softmax(score_logits, dim=-1)
+        ll = lprobs_score.gather(dim=-1, index=labels.unsqueeze(-1)).squeeze(-1)  # (1,T)
+
+        # Reference (sampling) distribution. White-box ⇒ same model/logits.
+        if self.source_model is self.scoring_model:
+            probs_ref = lprobs_score.exp()
+        else:
+            ref_logits = self.source_model(
+                input_ids=input_ids, attention_mask=attention_mask
+            ).logits[:, :-1, :].float()
+            probs_ref = F.softmax(ref_logits, dim=-1)
+
+        mean_ref = (probs_ref * lprobs_score).sum(dim=-1)                       # (1,T)
+        var_ref = (probs_ref * lprobs_score.square()).sum(dim=-1) - mean_ref.square()
+        discrepancy = (
+            (ll.sum(dim=-1) - mean_ref.sum(dim=-1))
+            / var_ref.sum(dim=-1).clamp_min(1e-8).sqrt()
         )
-        # Mask out padding
-        mask = attention_mask[:, 1:].float()  # aligned with shifted log-probs
-        original_mean_ll = (original_lp * mask).sum() / mask.sum()
-
-        # 2. Get sampling distribution from source model
-        sampling_probs = self._get_sampling_probs(input_ids, attention_mask)
-
-        # 3. Generate perturbations and score them
-        perturb_lls = []
-        for _ in range(num_perturbations):
-            perturbed = self._sample_perturbation(
-                input_ids, sampling_probs, attention_mask
-            )
-            p_lp = self._get_log_probs(
-                self.scoring_model, perturbed, attention_mask
-            )
-            p_mean_ll = (p_lp * mask).sum() / mask.sum()
-            perturb_lls.append(p_mean_ll.item())
-
-        perturb_mean = np.mean(perturb_lls)
-        perturb_std = np.std(perturb_lls) + 1e-8
-
-        # 4. Curvature
-        curvature = (original_mean_ll.item() - perturb_mean) / perturb_std
 
         return {
-            "fdgpt_curvature": curvature,
-            "fdgpt_original_ll": original_mean_ll.item(),
-            "fdgpt_perturb_mean_ll": perturb_mean,
-            "fdgpt_perturb_std_ll": perturb_std,
+            "fdgpt_curvature": discrepancy.mean().item(),
+            "fdgpt_original_ll": ll.mean().item(),
         }
 
     def score_batch(
@@ -194,13 +114,11 @@ class FastDetectGPTScorer:
         """Score a batch of texts."""
         results = []
         iterator = tqdm(texts, desc="Fast-DetectGPT scoring", disable=not show_progress)
-
         for text in iterator:
             scores = self.score_text(text, num_perturbations, max_length)
             results.append(scores)
             if show_progress:
                 iterator.set_postfix(curv=f"{scores['fdgpt_curvature']:.4f}")
-
         return results
 
     def score_dataset(

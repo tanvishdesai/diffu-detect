@@ -19,10 +19,11 @@ NOTE: DC is SLOW (50 perturbations × 16 draws per passage).
       Use MAX_SAMPLES=500 for initial validation, scale up later.
 """
 
-# !pip install -q torch transformers datasets accelerate bitsandbytes \
-#     scikit-learn pandas pyarrow tqdm huggingface_hub sentencepiece protobuf
+# Uncomment this line when running on Kaggle:
+# !pip install -q torch transformers datasets accelerate "bitsandbytes>=0.46.1" \
+#     scikit-learn pandas pyarrow tqdm huggingface_hub sentencepiece protobuf psutil
 
-import os, sys, time, json
+import os, sys, time, json, gc
 import numpy as np
 import pandas as pd
 import torch
@@ -36,8 +37,22 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 SEED = 42
 np.random.seed(SEED); torch.manual_seed(SEED)
 
+# ─── GPU diagnostics ─────────────────────────────────────────────────────────
+NUM_GPUS = torch.cuda.device_count()
+print(f"Number of GPUs: {NUM_GPUS}")
+for i in range(NUM_GPUS):
+    name = torch.cuda.get_device_name(i)
+    mem = torch.cuda.get_device_properties(i).total_memory / 1024**3  # FIX: total_memory (was total_mem → AttributeError crash)
+    print(f"  GPU {i}: {name} ({mem:.1f} GB)")
+try:
+    import psutil
+    print(f"System RAM: {psutil.virtual_memory().total / 1024**3:.1f} GB "
+          f"(available: {psutil.virtual_memory().available / 1024**3:.1f} GB)")
+except ImportError:
+    print("(psutil not installed — skipping RAM diagnostics)")
+
 # Choose which to run (DC is slow, DTD needs iterative model)
-RUN_DC = True
+RUN_DC = False          # DC gave AUROC=0.506 (random); skip unless investigating
 RUN_DTD = True
 
 # DC config — SMDM weights are at nieshen/SMDM (not nieshen/SMDM-1.1b)
@@ -55,16 +70,25 @@ DC_MASK_RATIO = 0.30
 DC_NUM_PERTURBATIONS = 30       # Reduced from 50 for speed
 DC_NUM_MASK_DRAWS = 8           # Reduced from 16 for speed
 
-# DTD config
-DTD_MODEL_REPO = "GSAI-ML/LLaDA-8B-Instruct"
-DTD_MODEL_NAME = "llada-8b"
+# DTD config — LLaDA primary, Dream-7B as fallback
+DTD_MODEL_CANDIDATES = [
+    ("GSAI-ML/LLaDA-8B-Instruct", "llada-8b"),
+    ("Dream-org/Dream-v0-Instruct-7B", "dream-7b"),
+]
+# Verified mask-token ids (also present in each model.config). We prefer these
+# constants so a tokenizer that lacks an explicit mask_token can't silently
+# fall back to unk/last-vocab (which would make every DTD feature meaningless).
+KNOWN_MASK_IDS = {
+    "GSAI-ML/LLaDA-8B-Instruct": 126336,
+    "Dream-org/Dream-v0-Instruct-7B": 151666,
+}
 DTD_QUANTIZE = 4
-DTD_NUM_STEPS = 32              # Denoising steps
-DTD_NUM_DRAWS = 4               # Few draws since each is multi-step
+DTD_NUM_STEPS = 16              # Reduced from 32 to save memory (halves forward passes)
+DTD_NUM_DRAWS = 2               # Reduced from 4 to save memory
 DTD_INITIAL_MASK_RATIO = 0.90
 
-MAX_SAMPLES = 500               # Start small!
-MAX_LENGTH = 512
+MAX_SAMPLES = 300               # Small — saves RAM for model loading
+MAX_LENGTH = 256                # Reduced from 512 — halves activation memory per forward pass
 
 DATA_DIR = "/kaggle/input/diffudetect-data/data"
 RESULTS_DIR = "/kaggle/working/results"
@@ -74,17 +98,29 @@ os.makedirs(RESULTS_DIR, exist_ok=True)
 
 data_file = os.path.join(DATA_DIR, "mage_quick.parquet")
 if not os.path.exists(data_file):
+    # Use streaming to avoid loading the entire MAGE dataset into RAM
     from datasets import load_dataset
-    ds = load_dataset("yaful/MAGE", trust_remote_code=True)
+    print("Loading MAGE via streaming (memory-safe)...")
+    ds = load_dataset("yaful/MAGE", streaming=True)
     split = "test" if "test" in ds else list(ds.keys())[0]
-    df = ds[split].to_pandas()
-    for src, dst in [("source_model", "generator"), ("category", "domain")]:
-        if src in df.columns: df = df.rename(columns={src: dst})
-    if "generator" not in df.columns: df["generator"] = df["label"].apply(lambda x: "machine" if x == 1 else "human")
-    if "domain" not in df.columns: df["domain"] = "unknown"
-    df["dataset"] = "mage"; df["attack"] = "none"
-    df["id"] = [f"mage_{i}" for i in range(len(df))]
-    df["label"] = df["label"].astype(int)
+    rows = []
+    for i, example in enumerate(ds[split]):
+        if len(rows) >= MAX_SAMPLES * 3:  # Grab enough to subsample
+            break
+        label_flipped = 1 - int(example["label"])  # MAGE labels are inverted
+        src = example.get("src", "unknown")
+        rows.append({
+            "id": f"mage_{i}",
+            "text": example["text"],
+            "label": label_flipped,
+            "generator": src,
+            "domain": src.split("_")[0] if src else "unknown",
+            "dataset": "mage",
+            "attack": "none",
+        })
+    df = pd.DataFrame(rows)
+    del rows; gc.collect()  # Free the list immediately
+    print(f"Streamed {len(df)} rows")
 else:
     df = pd.read_parquet(data_file)
 
@@ -94,6 +130,13 @@ if MAX_SAMPLES and len(df) > MAX_SAMPLES:
     ).reset_index(drop=True)
 
 print(f"Data: {len(df)} passages, labels={df['label'].value_counts().to_dict()}")
+
+# Extract texts as a lightweight list and drop the heavy text column from the DataFrame
+# This frees significant RAM before model loading
+_texts = df["text"].tolist()
+df = df.drop(columns=["text"])
+gc.collect()
+print(f"Extracted {len(_texts)} texts, freed DataFrame text column")
 
 # ─── Helper functions ────────────────────────────────────────────────────────
 
@@ -336,8 +379,37 @@ def _load_smdm_model(cfg):
 
     tok = AutoTokenizer.from_pretrained(cfg["tokenizer_repo"], padding_side="right", use_fast=True)
     tok.add_special_tokens({"pad_token": "<|pad|>"})
-    tok.pad_token_id = cfg["mask_token_id"]
+    # FIX: pad_token_id must NOT equal mask_token_id!
+    tok.pad_token_id = 2  # EOS token; NOT mask_token_id=32000
     return _Wrap(model, cfg["mask_token_id"]), tok
+
+
+def _patch_llada_model_class(repo):
+    """Monkey-patch LLaDA/Dream model class to fix transformers compatibility.
+
+    Newer transformers versions expect `_tied_weights_keys` (list) and
+    `all_tied_weights_keys` (property) on every PreTrainedModel subclass.
+    LLaDA's custom code inherits from an older base and is missing these.
+    """
+    import importlib
+    try:
+        # Import the remote modeling module so the custom class is registered
+        from transformers import AutoConfig
+        cfg = AutoConfig.from_pretrained(repo, trust_remote_code=True)
+        # The auto-downloaded module is cached; find the model class
+        model_cls_name = getattr(cfg, "architectures", [None])
+        if model_cls_name:
+            model_cls_name = model_cls_name[0]
+            # Find the class in loaded modules
+            for mod_name, mod in list(sys.modules.items()):
+                if mod and hasattr(mod, model_cls_name):
+                    cls = getattr(mod, model_cls_name)
+                    if not hasattr(cls, '_tied_weights_keys'):
+                        cls._tied_weights_keys = []
+                        print(f"  Patched {model_cls_name}._tied_weights_keys")
+                    break
+    except Exception as e:
+        print(f"  Warning: could not pre-patch model class: {e}")
 
 
 def load_diffusion_model(repo_or_cfg, quantize_bits=None):
@@ -346,31 +418,91 @@ def load_diffusion_model(repo_or_cfg, quantize_bits=None):
         return _load_smdm_model(repo_or_cfg)
 
     repo = repo_or_cfg
-    from transformers import AutoTokenizer, AutoModel, AutoModelForMaskedLM, BitsAndBytesConfig
+    from transformers import AutoTokenizer, AutoModel, AutoModelForMaskedLM, AutoModelForCausalLM, BitsAndBytesConfig
 
     tok = AutoTokenizer.from_pretrained(repo, trust_remote_code=True)
     if tok.pad_token is None: tok.pad_token = tok.eos_token
 
-    kwargs = {"pretrained_model_name_or_path": repo, "trust_remote_code": True, "torch_dtype": torch.float16}
+    # Pre-patch model class for LLaDA/Dream compatibility
+    _patch_llada_model_class(repo)
+
+    # Free CPU RAM before loading large model
+    gc.collect()
+    torch.cuda.empty_cache()
+
+    kwargs = {
+        "pretrained_model_name_or_path": repo,
+        "trust_remote_code": True,
+        "torch_dtype": torch.float16,
+        "low_cpu_mem_usage": True,  # Don't double-allocate weights in CPU RAM
+    }
     if quantize_bits in (4, 8):
         kwargs["quantization_config"] = BitsAndBytesConfig(
             load_in_4bit=(quantize_bits==4), load_in_8bit=(quantize_bits==8),
             bnb_4bit_compute_dtype=torch.float16, bnb_4bit_quant_type="nf4",
             bnb_4bit_use_double_quant=True
         )
-        kwargs["device_map"] = "auto"
+        # Spread across ALL available GPUs
+        if NUM_GPUS > 1:
+            # Give each GPU a fair share of VRAM (leave 2GB headroom per GPU for activations)
+            max_mem = {}
+            for i in range(NUM_GPUS):
+                total = torch.cuda.get_device_properties(i).total_memory  # FIX: total_memory
+                max_mem[i] = f"{int((total - 2 * 1024**3) / 1024**3)}GiB"
+            max_mem["cpu"] = "6GiB"  # Kaggle has ~13GB RAM; cap CPU to leave room for OS/Python
+            kwargs["device_map"] = "auto"
+            kwargs["max_memory"] = max_mem
+            print(f"  Multi-GPU loading: max_memory={max_mem}")
+        else:
+            kwargs["device_map"] = "auto"
+        # Use disk offloading — stages weights through disk to avoid RAM spikes
+        offload_dir = "/kaggle/working/_offload"
+        os.makedirs(offload_dir, exist_ok=True)
+        kwargs["offload_folder"] = offload_dir
     else:
         kwargs["device_map"] = {"": DEVICE}
 
     mdl = None
-    for Cls in [AutoModelForMaskedLM, AutoModel]:
+    # Try AutoModelForCausalLM FIRST — LLaDA registers as causal LM
+    for Cls in [AutoModelForCausalLM, AutoModelForMaskedLM, AutoModel]:
         try:
             mdl = Cls.from_pretrained(**kwargs)
             print(f"Loaded with {Cls.__name__}")
             break
-        except: continue
+        except Exception as e:
+            print(f"  {Cls.__name__} failed: {e}")
+            # If it's the tied_weights issue, try patching more aggressively
+            if "tied_weights" in str(e) or "all_tied_weights_keys" in str(e):
+                try:
+                    # Patch ALL PreTrainedModel subclasses in loaded modules
+                    for mod_name, mod in list(sys.modules.items()):
+                        if mod:
+                            for attr_name in dir(mod):
+                                try:
+                                    obj = getattr(mod, attr_name)
+                                    if (isinstance(obj, type) and
+                                        hasattr(obj, 'from_pretrained') and
+                                        not hasattr(obj, '_tied_weights_keys')):
+                                        obj._tied_weights_keys = []
+                                except: pass
+                    mdl = Cls.from_pretrained(**kwargs)
+                    print(f"Loaded with {Cls.__name__} (after aggressive patch)")
+                    break
+                except Exception as e2:
+                    print(f"  {Cls.__name__} failed again after patch: {e2}")
+            # Reclaim RAM from the failed attempt
+            gc.collect()
+            torch.cuda.empty_cache()
+            continue
     if mdl is None: raise RuntimeError(f"Cannot load {repo}")
     mdl.eval()
+
+    # Print memory usage after loading
+    for i in range(NUM_GPUS):
+        alloc = torch.cuda.memory_allocated(i) / 1024**3
+        total = torch.cuda.get_device_properties(i).total_mem / 1024**3
+        print(f"  GPU {i}: {alloc:.2f} / {total:.1f} GB used")
+
     return mdl, tok
 
 def get_mask_token_id(model, tokenizer):
@@ -401,6 +533,26 @@ def make_mask(input_ids, mask_ratio, special_ids, pad_id):
     n = max(1, int(len(eidx) * mask_ratio))
     perm = torch.randperm(len(eidx), device=input_ids.device)[:n]
     return eidx[perm]
+
+def get_model_input_device(model):
+    """Resolve the device where inputs should be sent for a multi-GPU model."""
+    # For device_map='auto' models, find the first parameter's device
+    try:
+        if hasattr(model, 'hf_device_map'):
+            # Model is split across devices; send inputs to the device of the first module
+            first_device = next(iter(model.hf_device_map.values()))
+            if isinstance(first_device, int):
+                return torch.device(f"cuda:{first_device}")
+            elif isinstance(first_device, str) and first_device != "cpu":
+                return torch.device(first_device)
+    except StopIteration:
+        pass
+    # Fallback: find first parameter's device
+    try:
+        return next(model.parameters()).device
+    except StopIteration:
+        return torch.device(DEVICE)
+
 
 def forward_get_logits(model, input_ids, attention_mask=None):
     try: out = model(input_ids=input_ids, attention_mask=attention_mask)
@@ -467,9 +619,9 @@ if RUN_DC:
         }
 
     dc_results = []
-    for _, row in tqdm(df.iterrows(), total=len(df), desc="DC scoring"):
+    for idx in tqdm(range(len(df)), desc="DC scoring"):
         try:
-            dc_results.append(compute_dc(str(row["text"])))
+            dc_results.append(compute_dc(str(_texts[idx])))
         except Exception as e:
             dc_results.append({"dc_curvature": np.nan, "dc_original_mre": np.nan,
                              "dc_perturb_mean_mre": np.nan, "dc_normalized": np.nan})
@@ -477,16 +629,23 @@ if RUN_DC:
     dc_df = pd.DataFrame(dc_results)
     for c in dc_df.columns: df[c] = dc_df[c].values
 
-    # Save DC scores
-    meta = ["id","text","label","generator","domain","dataset","attack"]
-    save_cols = [c for c in meta if c in df.columns] + list(dc_df.columns)
-    df[save_cols].to_parquet(os.path.join(RESULTS_DIR, f"scores_mage_dc_{DC_MODEL_NAME}.parquet"), index=False)
+    # Save DC scores (re-attach text column for parquet output)
+    meta = ["id","label","generator","domain","dataset","attack"]
+    save_df = df.copy()
+    save_df["text"] = _texts
+    save_cols = [c for c in (["id","text","label","generator","domain","dataset","attack"]) if c in save_df.columns] + list(dc_df.columns)
+    save_df[save_cols].to_parquet(os.path.join(RESULTS_DIR, f"scores_mage_dc_{DC_MODEL_NAME}.parquet"), index=False)
+    del save_df; gc.collect()
 
     # DC AUROC
     valid = ~np.isnan(df["dc_normalized"].values)
     if valid.sum() > 10:
-        auroc = roc_auc_score(df["label"].values[valid], df["dc_normalized"].values[valid])
-        print(f"\nDC Normalized AUROC: {auroc:.4f}")
+        # FIX: auto-detect score direction
+        auroc_pos = roc_auc_score(df["label"].values[valid], df["dc_normalized"].values[valid])
+        auroc_neg = roc_auc_score(df["label"].values[valid], -df["dc_normalized"].values[valid])
+        auroc = max(auroc_pos, auroc_neg)
+        direction = "higher=machine" if auroc_pos >= auroc_neg else "lower=machine"
+        print(f"\nDC Normalized AUROC: {auroc:.4f} [{direction}]")
 
     del model; torch.cuda.empty_cache()
 
@@ -499,15 +658,51 @@ if RUN_DTD:
     print("DENOISING-TRAJECTORY DYNAMICS (DTD) SCORING")
     print("=" * 60)
 
-    model, tokenizer = load_diffusion_model(DTD_MODEL_REPO, DTD_QUANTIZE)
-    mask_id = get_mask_token_id(model, tokenizer)
-    special_ids = get_special_ids(tokenizer)
-    print(f"Mask token: {mask_id}")
+    # Try each candidate model until one loads successfully
+    model = None
+    tokenizer = None
+    DTD_MODEL_NAME = None
+    _loaded_repo = None
+    for _repo, _name in DTD_MODEL_CANDIDATES:
+        try:
+            print(f"\nTrying DTD model: {_repo}...")
+            model, tokenizer = load_diffusion_model(_repo, DTD_QUANTIZE)
+            DTD_MODEL_NAME = _name
+            _loaded_repo = _repo
+            print(f"Successfully loaded {_name}")
+            break
+        except Exception as e:
+            print(f"Failed to load {_name}: {e}")
+            # Aggressively reclaim RAM from the failed load attempt
+            # (partial model weights + tokenizer can leak several GB)
+            gc.collect()
+            torch.cuda.empty_cache()
+            continue
+
+    if model is None:
+        print("\n" + "!" * 60)
+        print("ERROR: Could not load ANY DTD model. Skipping DTD scoring.")
+        print("!" * 60)
+        RUN_DTD = False
+    else:
+        # Prefer the verified constant; fall back to config/tokenizer lookup.
+        mask_id = KNOWN_MASK_IDS.get(_loaded_repo) or get_mask_token_id(model, tokenizer)
+        special_ids = get_special_ids(tokenizer)
+        print(f"Mask token: {mask_id}")
+
+if RUN_DTD:  # Second guard: only runs if model loaded successfully above
+    # Resolve input device once (for multi-GPU models)
+    _dtd_input_device = get_model_input_device(model)
+    print(f"DTD input device: {_dtd_input_device}")
 
     @torch.no_grad()
     def compute_dtd(text):
-        enc = tokenizer(text, max_length=MAX_LENGTH, truncation=True, padding="max_length", return_tensors="pt")
-        ids = enc["input_ids"].to(DEVICE); attn = enc["attention_mask"].to(DEVICE)
+        # No fixed-length padding: batch=1, so score at true length. On an 8B
+        # model this is the difference between forwarding ~120 real tokens vs a
+        # padded 256 every denoising step.
+        enc = tokenizer(text, max_length=MAX_LENGTH, truncation=True, return_tensors="pt")
+        ids = enc["input_ids"].to(_dtd_input_device)
+        attn = enc["attention_mask"].to(_dtd_input_device)
         seq_len = ids.shape[1]
 
         all_features = []
@@ -529,8 +724,14 @@ if RUN_DTD:
             for step_idx, target_ratio in enumerate(schedule):
                 if not masked_set: break
                 logits = forward_get_logits(model, cur, attn)
-                probs = F.softmax(logits, dim=-1)
+                # Move logits to CPU-side to free GPU VRAM for next forward pass
+                # Only need softmax at masked positions + top-1 for the full seq
+                logits_cpu = logits.float().cpu()
+                del logits  # Free GPU memory immediately
+
+                probs = F.softmax(logits_cpu, dim=-1)
                 entropy = -(probs * (probs + 1e-10).log()).sum(dim=-1)
+                del logits_cpu  # Free after computing probs/entropy
 
                 # Step entropy over masked positions
                 mpos_list = list(masked_set)
@@ -557,8 +758,10 @@ if RUN_DTD:
                     ents = [(entropy[0, p].item(), p) for p in mpos_list]
                     ents.sort()
                     for _, p in ents[:n_unmask]:
-                        cur[0, p] = top1_ids[p]
+                        cur[0, p] = top1_ids[p].to(_dtd_input_device)
                         masked_set.discard(p)
+
+                del probs, entropy, top1_probs, top1_ids  # Free memory
 
             # Extract features
             feat = {}
@@ -589,26 +792,37 @@ if RUN_DTD:
         return avg
 
     dtd_results = []
-    for _, row in tqdm(df.iterrows(), total=len(df), desc="DTD scoring"):
+    for idx in tqdm(range(len(df)), desc="DTD scoring"):
         try:
-            dtd_results.append(compute_dtd(str(row["text"])))
+            dtd_results.append(compute_dtd(str(_texts[idx])))
         except Exception as e:
             dtd_results.append({k: np.nan for k in ["dtd_entropy_auc","dtd_mean_commit_time",
                                "dtd_trajectory_curvature","dtd_mean_flips","dtd_final_entropy","dtd_entropy_drop"]})
+        # Periodic GPU memory cleanup
+        if (idx + 1) % 10 == 0:
+            torch.cuda.empty_cache()
+            gc.collect()
 
     dtd_df = pd.DataFrame(dtd_results)
     for c in dtd_df.columns: df[c] = dtd_df[c].values
 
-    meta = ["id","text","label","generator","domain","dataset","attack"]
-    save_cols = [c for c in meta if c in df.columns] + list(dtd_df.columns)
-    df[save_cols].to_parquet(os.path.join(RESULTS_DIR, f"scores_mage_dtd_{DTD_MODEL_NAME}.parquet"), index=False)
+    # Save DTD scores (re-attach text column for parquet output)
+    save_df = df.copy()
+    save_df["text"] = _texts
+    meta_all = ["id","text","label","generator","domain","dataset","attack"]
+    save_cols = [c for c in meta_all if c in save_df.columns] + list(dtd_df.columns)
+    dtd_out_name = DTD_MODEL_NAME or "unknown"
+    save_df[save_cols].to_parquet(os.path.join(RESULTS_DIR, f"scores_mage_dtd_{dtd_out_name}.parquet"), index=False)
+    del save_df; gc.collect()
 
     # DTD AUROCs
     for col in dtd_df.columns:
         valid = ~np.isnan(df[col].values)
         if valid.sum() < 10: continue
         try:
-            auroc = roc_auc_score(df["label"].values[valid], -df[col].values[valid])
+            # FIX: auto-detect score direction
+            auroc = max(roc_auc_score(df["label"].values[valid], df[col].values[valid]),
+                       roc_auc_score(df["label"].values[valid], -df[col].values[valid]))
             print(f"  {col}: AUROC={auroc:.4f}")
         except: pass
 

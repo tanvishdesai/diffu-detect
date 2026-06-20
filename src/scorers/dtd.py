@@ -163,7 +163,7 @@ class DTDScorer:
             else:
                 logits = outputs
 
-            probs = F.softmax(logits, dim=-1)  # (batch, seq_len, vocab)
+            probs = F.softmax(logits.float(), dim=-1)  # (batch, seq_len, vocab); float32 for stable entropy
 
             # Per-token entropy at masked positions
             token_entropy = -(probs * (probs + 1e-10).log()).sum(dim=-1)  # (batch, seq_len)

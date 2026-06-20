@@ -34,6 +34,7 @@ class ModelSpec:
     tokenizer_repo: Optional[str] = None
     smdm_config_name: Optional[str] = None
     mask_token_id: Optional[int] = None
+    model_class: Optional[str] = None     # "causal_lm" | "automodel" | "masked_lm"
 
 
 MODELS: Dict[str, ModelSpec] = {
@@ -63,9 +64,13 @@ MODELS: Dict[str, ModelSpec] = {
         name="llada-8b",
         hf_repo="GSAI-ML/LLaDA-8B-Instruct",
         model_type="diffusion",
-        quantize_bits=4,
+        quantize_bits=4,                 # ~6 GB on a single T4; fp16 on T4 x2
         max_length=512,
         supports_iterative=True,
+        loader="transformers",
+        tokenizer_repo="GSAI-ML/LLaDA-8B-Instruct",
+        model_class="causal_lm",         # AutoModelForCausalLM (trust_remote_code)
+        mask_token_id=126336,            # verified; also in model.config
     ),
     "dream-7b": ModelSpec(
         name="dream-7b",
@@ -74,6 +79,10 @@ MODELS: Dict[str, ModelSpec] = {
         quantize_bits=4,
         max_length=512,
         supports_iterative=True,
+        loader="transformers",
+        tokenizer_repo="Dream-org/Dream-v0-Instruct-7B",
+        model_class="automodel",         # AutoModel (trust_remote_code)
+        mask_token_id=151666,            # verified; also in model.config
     ),
     # ── AR baselines ──
     "gpt-neo-2.7b": ModelSpec(
