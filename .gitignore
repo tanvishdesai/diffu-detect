@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.pyo
+.ipynb_checkpoints/
+
+# Credentials
+kaggle.json
+.env
+
+# Large data / model artifacts (regenerated on Kaggle/Colab)
+*.parquet
+*.ckpt
+*.pt
+*.safetensors
+*.bin

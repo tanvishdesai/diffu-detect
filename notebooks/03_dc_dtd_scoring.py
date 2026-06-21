@@ -500,7 +500,7 @@ def load_diffusion_model(repo_or_cfg, quantize_bits=None):
     # Print memory usage after loading
     for i in range(NUM_GPUS):
         alloc = torch.cuda.memory_allocated(i) / 1024**3
-        total = torch.cuda.get_device_properties(i).total_mem / 1024**3
+        total = torch.cuda.get_device_properties(i).total_memory / 1024**3  # FIX: total_memory (was total_mem → AttributeError crash after load)
         print(f"  GPU {i}: {alloc:.2f} / {total:.1f} GB used")
 
     return mdl, tok

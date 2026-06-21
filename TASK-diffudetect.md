@@ -2,11 +2,11 @@
 
 > Working task tracker. `[ ]` todo, `[~]` in progress, `[x]` done, `[!]` blocked. Add anything discovered mid-process to the "Discovered mid-process" section at the bottom. Pair with `PLANNING.md`.
 
-**Current phase:** Phase 1 re-run on v2 fixes — within-testbed eval + fixed FDGPT baseline
-**Headline bet:** robustness-to-paraphrase win over Fast-DetectGPT (decided at Phase 3)
-**Hard deadline:** AAAI-27 paper 2026-07-27 (fallback AAAI-28)
-**v2 note:** the v1 "NO-GO" was a pooling artifact and the FDGPT baseline was broken;
-both fixed. See "Discovered mid-process" below and `RUNBOOK.md` for the re-run plan.
+**Current phase:** ⛔ ABANDONED (2026-06-21). Core premise falsified + robustness wedge gone. See POST-MORTEM below.
+**Headline bet (FAILED):** robustness win over Fast-DetectGPT — the wedge does not exist; FDGPT does not collapse under paraphrase.
+**Hard deadline:** AAAI-27 paper 2026-07-27 — not pursued for this project; effort moved to FlatFake.
+**v2 note (RETRACTED):** the v2 "within-testbed rescues it to 0.9+" story was itself a
+direction-flipping artifact. Honest within-testbed is ~0.6 across SMDM/LLaDA/Dream. See POST-MORTEM.
 
 ---
 
@@ -80,6 +80,11 @@ both fixed. See "Discovered mid-process" below and `RUNBOOK.md` for the re-run p
   one global threshold can't separate them. **Fix:** evaluation is now
   within-testbed (mean per-(dataset,domain) AUROC) as the primary metric; pooled
   kept only as a labelled reference. Both GO/NO-GO gates re-evaluated on it.
+  **⛔ RETRACTED (2026-06-21):** the "per-generator AUROC 0.9+ / MRE beats FDGPT"
+  rescue was itself an artifact — those per-generator AUROCs use `max(roc, 1-roc)`,
+  which silently flips the detector's direction per generator. With a single honest
+  direction, within-testbed is ~0.6 (NO-GO), confirmed on SMDM, LLaDA-8B and Dream-7B.
+  See POST-MORTEM at the bottom.
 - **Fast-DetectGPT baseline was broken (M0 not actually met).** v1 used a
   Monte-Carlo approximation (~50–100 perturbations, full forward each) → 0.53
   AUROC, 13.96 s/passage. Replaced with the **analytic** closed-form sampling
@@ -101,10 +106,17 @@ both fixed. See "Discovered mid-process" below and `RUNBOOK.md` for the re-run p
   mask_token_id=151666 (both also in model.config). T4×1 @4-bit ~6 GB, or fp16 on
   T4×2 via device_map="auto". See `RUNBOOK.md` for the full run sequence.
 
-## Status of gates after v2 fixes (to be filled in on the next run)
-- M0 (baselines reproduced): FDGPT now analytic → expect within-testbed ≈0.9. **Re-verify.**
-- GO/NO-GO #1: re-read `auroc_within_testbed` in NB05 STEP 2 (NOT pooled).
-- GO/NO-GO #2: re-read within-testbed paraphrase ΔAUROC in NB05 STEP 3.
+## Status of gates — FINAL (2026-06-21)
+- M0 (baselines reproduced): FDGPT analytic confirmed strong (within-testbed ≈0.9; literature: 0.85–0.96 clean, *stays* 0.85–0.96 under paraphrase).
+- **GO/NO-GO #1: 🔴 NO-GO (decisive).** Honest within-testbed MRE AUROC on clean MAGE: SMDM 0.63, LLaDA-8B 0.59, Dream-7B 0.57. Scaling to 8B did not help; all <0.70.
+- **GO/NO-GO #2: 🔴 NO-GO (premise pre-falsified, not run).** The wedge needs FDGPT to collapse under paraphrase; it does not (drops only ~3–11 pts, stays ≥0.85). A 0.6-clean detector cannot cross over.
+
+## POST-MORTEM — why DiffuDetect was abandoned (2026-06-21)
+1. **Clean signal weak and does not scale.** MRE within-testbed: SMDM 0.63 > LLaDA-8B 0.59 > Dream-7B 0.57. The bigger diffusion models are *worse*; the "8B will rescue it" hypothesis is falsified.
+2. **Non-monotonic mechanism (root cause).** Reconstruction ease is non-monotonic in generator capability — strong generators easier-than-human, weak generators harder-than-human — so the signal's sign flips across generators and a zero-shot detector can't pick a direction. Per-generator 0.9+ AUROCs are inflated by per-generator `max(roc,1-roc)` direction-flipping; the honest number is ~0.6.
+3. **Robustness wedge does not exist.** Fast-DetectGPT (the real baseline) is already paraphrase-robust (XSum 96→85, WP 99→96, Reddit 98→95). The project assumed it collapses; it doesn't. No crossover possible from a 0.6-clean detector.
+4. **Dream-7B implementation bug** (perplexity ~400 vs LLaDA ~3; anti-thesis direction) — real but irrelevant; correctly-implemented LLaDA already gives the negative verdict.
+- **Disposition:** abandoned for AAAI-27. Optional low-effort salvage = negative-result / eval-methodology workshop note. Primary effort → FlatFake.
 
 ## Open questions
 - Does 4-bit quantization measurably weaken the trajectory (DTD) signal vs full precision? (Validate on SMDM unquantized.)

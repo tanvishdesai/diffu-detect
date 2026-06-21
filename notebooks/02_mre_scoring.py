@@ -28,8 +28,15 @@ INPUT DATASETS:
 # !git clone --depth 1 https://github.com/ML-GSAI/SMDM.git /tmp/SMDM
 #
 # For LLaDA-8B / Dream-7B (4-bit) — needs bitsandbytes + accelerate, NO SMDM clone:
-# !pip install -q torch transformers datasets accelerate "bitsandbytes>=0.43.1" \
+# !pip install -q -U "transformers>=4.46,<5" datasets accelerate "bitsandbytes>=0.46.1" \
 #     scikit-learn pandas pyarrow tqdm huggingface_hub sentencepiece protobuf
+#   ⚠ TWO pins matter (both seen as load failures, NOT VRAM/OOM):
+#     1. bitsandbytes>=0.46.1 — older versions are rejected for 4-bit.
+#     2. transformers<5 — transformers 5.0 breaks LLaDA/Dream trust_remote_code
+#        ("Could not import module 'PreTrainedModel'"). Their custom modeling
+#        targets transformers 4.x. Pin <5 (same applies to NB03 for DTD).
+#     After installing on Kaggle, RESTART the kernel if transformers had to
+#     downgrade, then run. You MUST actually run this pip line (not commented).
 #   (Set MODEL_NAME="llada-8b" or "dream-7b" below; QUANTIZE_BITS auto-set to 4.
 #    These load via trust_remote_code — no GGUF/llama.cpp: we need raw per-token
 #    logits at masked positions, which GGUF/llama.cpp can't provide for these
@@ -512,13 +519,18 @@ def load_transformers_diffusion_model(cfg, device, quantize_bits=None):
             bnb_4bit_use_double_quant=True,
         )
         kwargs["device_map"] = "auto"   # shards across all visible GPUs
-        if n_gpus > 1:
-            max_mem = {}
-            for i in range(n_gpus):
-                total = torch.cuda.get_device_properties(i).total_memory
-                max_mem[i] = f"{int((total - 2 * 1024**3) / 1024**3)}GiB"
-            max_mem["cpu"] = "6GiB"
-            kwargs["max_memory"] = max_mem
+        # Disk-offload fallback so a load that doesn't fit can stage through disk
+        # instead of OOM-ing. Also reserve ~2 GB GPU headroom for activations and
+        # cap CPU so accelerate doesn't try to keep fp16 shadow weights in RAM.
+        offload_dir = "/kaggle/working/_offload"
+        os.makedirs(offload_dir, exist_ok=True)
+        kwargs["offload_folder"] = offload_dir
+        max_mem = {}
+        for i in range(n_gpus):
+            total = torch.cuda.get_device_properties(i).total_memory
+            max_mem[i] = f"{int((total - 2 * 1024**3) / 1024**3)}GiB"
+        max_mem["cpu"] = "8GiB"
+        kwargs["max_memory"] = max_mem
     else:
         kwargs["device_map"] = {"": device} if n_gpus <= 1 else "auto"
 
@@ -564,6 +576,21 @@ def load_transformers_diffusion_model(cfg, device, quantize_bits=None):
     if model is None:
         raise RuntimeError(f"Could not load model {repo}")
     model.eval()
+
+    # Surface whether 4-bit actually engaged. If this prints False on a single
+    # T4, the custom modeling silently loaded fp16 (~16 GB) and that is the OOM
+    # — switch to GPU T4 x2, or report this back.
+    if quantize_bits in (4, 8):
+        try:
+            is_4bit = any(type(m).__name__ in ("Linear4bit", "Linear8bitLt")
+                          for m in model.modules())
+            print(f"  Quantization active ({quantize_bits}-bit): {is_4bit}")
+        except Exception:
+            pass
+    for i in range(torch.cuda.device_count()):
+        a = torch.cuda.memory_allocated(i) / 1024**3
+        t = torch.cuda.get_device_properties(i).total_memory / 1024**3
+        print(f"  GPU {i}: {a:.2f} / {t:.1f} GB allocated")
     return model, tokenizer
 
 
@@ -624,6 +651,12 @@ for attr in ['bos_token_id', 'eos_token_id', 'pad_token_id', 'cls_token_id', 'se
 
 # ─── Cell 5: MRE scoring function ────────────────────────────────────────────
 
+# Some diffusion models (Dream) pass the raw int attention_mask straight into
+# scaled_dot_product_attention, which rejects it ("attn_mask.dtype: long int").
+# We score batch=1 with no padding, so the mask is all-ones (full attention) and
+# dropping it is exactly equivalent. Probe once on the first forward, then skip.
+_PASS_ATTN = True
+
 @torch.no_grad()
 def compute_mre(text, mask_ratio, num_draws=16, max_length=512):
     """
@@ -667,23 +700,45 @@ def compute_mre(text, mask_ratio, num_draws=16, max_length=512):
         masked_input = input_ids.clone()
         masked_input[0, mask_positions] = MASK_TOKEN_ID
 
-        # Forward pass
-        try:
-            outputs = model(input_ids=masked_input, attention_mask=attention_mask)
-        except TypeError:
+        # Forward pass. Probe attention_mask once; if the model rejects it
+        # (Dream's SDPA dtype bug, or a signature mismatch), drop it permanently.
+        global _PASS_ATTN
+        if _PASS_ATTN:
+            try:
+                outputs = model(input_ids=masked_input, attention_mask=attention_mask)
+            except (TypeError, RuntimeError):
+                _PASS_ATTN = False
+                outputs = model(input_ids=masked_input)
+        else:
             outputs = model(input_ids=masked_input)
 
-        if hasattr(outputs, 'logits'):
+        if hasattr(outputs, 'logits') and outputs.logits is not None:
             logits = outputs.logits
+        elif hasattr(outputs, 'last_hidden_state'):
+            logits = outputs.last_hidden_state
         elif isinstance(outputs, tuple):
             logits = outputs[0]
         else:
             logits = outputs
 
-        # NLL at masked positions (float32 for stability)
-        log_probs = F.log_softmax(logits[0, mask_positions, :].float(), dim=-1)
-        true_token_ids = input_ids[0, mask_positions]
-        token_nlls = -log_probs[torch.arange(len(mask_positions)), true_token_ids]
+        # Some models (e.g. Dream loaded as AutoModel) return hidden states, not
+        # logits — last dim is hidden_size, not vocab. Project through the LM head.
+        vocab = getattr(getattr(model, "config", None), "vocab_size", None)
+        if vocab is not None and logits.shape[-1] != vocab:
+            head = getattr(model, "lm_head", None)
+            if head is None and hasattr(model, "get_output_embeddings"):
+                head = model.get_output_embeddings()
+            if head is not None:
+                logits = head(logits.to(next(head.parameters()).device))
+
+        # Device-safe: with device_map='auto' the model shards across GPUs, so
+        # logits can land on a different device than mask_positions (this is why
+        # Dream on T4 x2 errored on every passage). Do all indexing on logits.device.
+        dev = logits.device
+        mp = mask_positions.to(dev)
+        log_probs = F.log_softmax(logits[0, mp, :].float(), dim=-1)
+        true_token_ids = input_ids[0, mask_positions].to(dev)
+        token_nlls = -log_probs[torch.arange(len(mp), device=dev), true_token_ids]
 
         draw_nlls.append(token_nlls.mean().item())
 
@@ -730,7 +785,11 @@ for idx, (_, row) in enumerate(tqdm(df.iterrows(), total=len(df), desc="MRE Scor
 scoring_time = time.time() - scoring_start
 print(f"\nScoring complete: {scoring_time:.0f}s ({scoring_time/len(df):.2f}s per passage)")
 if errors:
-    print(f"Errors: {len(errors)}")
+    print(f"Errors: {len(errors)}/{len(df)}")
+    print(f"  First error: {errors[0][1]}")
+    if len(errors) == len(df):
+        print("  ⚠ ALL passages errored → the forward/NLL path is failing, not the data."
+              " The message above is the real cause.")
 
 # ─── Cell 7: Save scores ─────────────────────────────────────────────────────
 
@@ -813,6 +872,8 @@ def _within_domain_auroc(col, min_per_class=20):
     s = df[col].values.astype(float)
     # fix orientation once on pooled data, then no per-domain flipping
     m = np.isfinite(s)
+    if m.sum() < 10:               # all-NaN column (e.g. scoring failed) → skip
+        return np.nan, 0
     flip = roc_auc_score(labels[m], s[m]) < 0.5
     s_or = -s if flip else s
     for dom, g in df.groupby("domain"):

@@ -2,6 +2,44 @@
 
 **Diffusion Language Models as Zero-Shot Detectors of AI-Generated Text**
 
+> ## ⛔ PROJECT ABANDONED (2026-06-21) — verdict on top; original design preserved below for the record
+>
+> **DiffuDetect does not work as scoped and is not a viable AAAI-27 paper.** The central
+> premise — "machine text is systematically easier for a diffusion LM to reconstruct than
+> human text" — is **empirically false as a zero-shot signal**, and the paraphrase-robustness
+> wedge the whole project depended on **does not exist** against the real baseline. Decisive
+> evidence:
+>
+> 1. **Clean MRE is weak and does not scale.** Honest single-direction *within-testbed*
+>    AUROC on MAGE: SMDM-1.1B **0.63**, LLaDA-8B **0.59**, Dream-7B **0.57** — all NO-GO
+>    (<0.70). Scaling 1.1B → 8B made it *worse*, not better. LLaDA is correctly implemented
+>    (sane perplexities ~3 at r=0.15, thesis-consistent direction), so this is a true
+>    measurement, not a bug.
+> 2. **The mechanism is non-monotonic, which is fatal for zero-shot use.** Reconstruction
+>    ease is non-monotonic in generator capability: strong generators (GPT-4, davinci)
+>    produce text *easier* to reconstruct than human, weak ones (OPT-125M, flan-small)
+>    produce text *harder* than human. The sign of the signal flips across generators, so a
+>    detector with no test-time generator label cannot choose a threshold direction. This is
+>    why per-generator AUROC looks like 0.9+ (it silently flips direction per generator via
+>    `max(roc, 1-roc)`) while honest within-testbed is ~0.6. **The earlier "within-testbed
+>    rescues to 0.9+" claim was an artifact of that direction-flipping and is retracted.**
+> 3. **The robustness wedge is gone.** §11 assumed Fast-DetectGPT drops −15 to −25 AUROC
+>    under paraphrase. That was true of the *old* DetectGPT (0.83→0.55), **not** of
+>    Fast-DetectGPT, the baseline we must beat. Current numbers (Lastde++ Table 3 /
+>    Fast-DetectGPT paper): XSum 96.0→85.5, WritingPrompts 99.0→96.3, Reddit 98.1→94.6 — it
+>    *stays* at 0.85–0.96. A 0.6-clean diffusion detector never crosses over. The brittle AR
+>    detector this project was built to exploit does not exist for standard paraphrase.
+> 4. **Dream-7B also has an implementation bug** (perplexity ~400 at r=0.15 vs LLaDA's ~3;
+>    anti-thesis direction) from the attention-mask/head-readout workaround — but fixing it
+>    cannot change the verdict, since the correctly-implemented LLaDA already gives the
+>    honest (negative) answer.
+>
+> **Disposition:** abandoned as an AAAI-27 detector paper. Only salvage worth considering is
+> a *low-effort* negative-result / evaluation-methodology note for a workshop/Findings venue
+> (the pooled-vs-within-testbed overstatement + the non-monotonicity finding are a genuine
+> service to the field). Primary effort moved to **FlatFake**. Everything below is the
+> original pre-abandonment design, unchanged.
+
 > Living design document. This is the single source of truth for the project's vision, architecture, constraints, and definitions of success. Update it when a decision changes; track day-to-day work in `TASK.md`.
 
 ---
